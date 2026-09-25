@@ -248,8 +248,10 @@ chat prompt. `context_tokens` is written on every `events.jsonl` line, not
 just on asks, so the chart has a point per line.
 
 **Model calls:** `temperature` 0, `seed` 0, `num_ctx` 32768. Cache in
-`cache/llm.jsonl` keyed by `sha256(model + messages + options)`. The cache is
-committed, so either laptop replays the day without a model.
+`cache/llm.jsonl` keyed by the `sha256` of the whole request: model, messages,
+options and schema, since the same prompt under a different schema gets a
+different answer. The cache is committed, so either laptop replays the day
+without a model.
 
 **`events.jsonl`**, one line per thing that happened to one robot:
 
