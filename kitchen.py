@@ -14,8 +14,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
+import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -51,25 +54,84 @@ def grade(line: dict, action: str) -> bool | None:
     return action == check["pass_if"]
 
 
-def search_recipe(query: str) -> dict:
+def search_recipe(query: str, live: bool | None = None) -> dict:
     """One recipe page for the robot's free-text query.
 
-    Reads fixtures/web_cache.json: the first entry whose match_any phrase
-    appears in the lowercased query, else the default page. The cache's "fat"
-    label is ours, not the page's, so it is never returned.
+    In order: the recorded Nimble response for this query, so a replay gets
+    the same page; a live Nimble search when NIMBLE_API_KEY is set, recorded
+    into fixtures/web_cache.json before it is returned; else the synthetic
+    pages there, the first whose match_any phrase appears in the lowercased
+    query, or the default. KITCHEN_OFFLINE=1 or live=False never calls out.
+    The synthetic pages' "fat" label is ours, not the page's, so it is never
+    returned.
     """
     q = " ".join(query.lower().split())
-    entries = json.loads(WEB_CACHE.read_text())["search_recipe"]
+    cache = json.loads(WEB_CACHE.read_text())
+    recorded = cache.setdefault("recorded", {})
+    if q in recorded:
+        return _page(query, recorded[q], "recorded")
+    key = _secret("NIMBLE_API_KEY")
+    if live is None:
+        live = not os.environ.get("KITCHEN_OFFLINE")
+    if live and key:
+        try:
+            page = _nimble(query, key)
+        except (OSError, LookupError, ValueError) as e:  # network, HTTP, shape, JSON
+            print(f"kitchen: Nimble failed for {query!r}, using the synthetic page: {e}", file=sys.stderr)
+        else:
+            page["fetched_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            recorded[q] = page
+            WEB_CACHE.write_text(json.dumps(cache, indent=2, ensure_ascii=False) + "\n")
+            return _page(query, page, "nimble")
+    entries = cache["search_recipe"]
     page = next((e for e in entries if any(m in q for m in e.get("match_any", ()))), None)
     if page is None:
         page = next(e for e in entries if e.get("default"))
-    return {
-        "query": query,
-        "url": page["url"],
-        "title": page["title"],
-        "body": page["body"],
-        "source": "cache",
-    }
+    return _page(query, page, "cache")
+
+
+def _page(query: str, page: dict, source: str) -> dict:
+    return {"query": query, "url": page["url"], "title": page["title"], "body": page["body"], "source": source}
+
+
+NIMBLE_SEARCH = "https://sdk.nimbleway.com/v2/search"
+PAGE_CHARS = 12_000  # about 3K tokens; the plan budgets a live page at 2 to 4K
+
+
+def _nimble(query: str, key: str) -> dict:
+    """The first of Nimble's top three results with real page text."""
+    body = {"query": query, "max_results": 3, "full_content": True,
+            "output_format": "plain_text", "country": "US", "locale": "en"}
+    request = urllib.request.Request(
+        NIMBLE_SEARCH, data=json.dumps(body).encode(), method="POST",
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        results = json.load(response)["results"]
+    top = next((r for r in results if len(r.get("content") or "") >= 500), results[0])
+    text = top.get("content") or top.get("description") or ""
+    return {"url": top["url"], "title": top["title"], "body": _recipe_part(text)}
+
+
+def _recipe_part(text: str) -> str:
+    """PAGE_CHARS of the page, starting just before the ingredients when a
+    long preamble would otherwise push them out."""
+    at = text.lower().find("ingredients")
+    start = at - 1_000 if at > PAGE_CHARS // 2 else 0
+    return text[start:start + PAGE_CHARS]
+
+
+def _secret(name: str) -> str | None:
+    """From the environment, else from .env beside this file."""
+    if os.environ.get(name):
+        return os.environ[name]
+    env = FIXTURES.parent / ".env"
+    if env.exists():
+        for raw in env.read_text().splitlines():
+            k, _, v = raw.partition("=")
+            if k.strip() == name and v.strip():
+                return v.strip().strip("'\"")
+    return None
 
 
 def web_line(t: int, clock: str, page: dict) -> dict:

@@ -1,7 +1,17 @@
 """Checks for kitchen.py. Run with `python test_kitchen.py` or pytest."""
+import contextlib
+import io
+import json
+import os
 import re
+import shutil
+import tempfile
+import urllib.request
+from pathlib import Path
 
-import kitchen
+os.environ["KITCHEN_OFFLINE"] = "1"  # never spend a Nimble call in a test
+
+import kitchen  # noqa: E402
 
 CHECK_IDS = ["crumble_out", "stew_vegan", "cloth", "seven_places", "roast_out", "salted_once"]
 
@@ -127,6 +137,81 @@ def test_wall_lands_between_the_stew_and_the_table():
 def test_window_still_holds_the_crumble_at_11():
     # The control: the crumble went in at 10:40, so 20 lines back.
     assert kitchen.window_lines(kitchen.load_day(), 180) > 25
+
+
+@contextlib.contextmanager
+def nimble(urlopen):
+    """A key, a throwaway copy of the cache, and urlopen replaced."""
+    saved = kitchen.WEB_CACHE, urllib.request.urlopen, os.environ.get("NIMBLE_API_KEY")
+    cache = Path(tempfile.mkdtemp()) / "web_cache.json"
+    shutil.copy(kitchen.WEB_CACHE, cache)
+    kitchen.WEB_CACHE, urllib.request.urlopen = cache, urlopen
+    os.environ["NIMBLE_API_KEY"] = "test-key"
+    try:
+        yield cache
+    finally:
+        kitchen.WEB_CACHE, urllib.request.urlopen = saved[0], saved[1]
+        if saved[2] is None:
+            os.environ.pop("NIMBLE_API_KEY", None)
+        else:
+            os.environ["NIMBLE_API_KEY"] = saved[2]
+
+
+def unreachable(*args, **kwargs):
+    raise AssertionError("called Nimble")
+
+
+def test_live_search_is_recorded_then_replayed():
+    sent = []
+    results = [
+        {"title": "A pin", "url": "https://pins.example/1", "content": "Save this!"},
+        {"title": "Real Vegan Stew", "url": "https://recipes.example.org/vegan-stew",
+         "content": "My story. " * 1000 + "Ingredients: 2 tbsp olive oil, 1 onion. Method: soften."},
+    ]
+
+    def urlopen(request, timeout):
+        sent.append(request)
+        return io.BytesIO(json.dumps({"request_id": "r1", "total_results": 2, "results": results}).encode())
+
+    with nimble(urlopen) as cache:
+        page = kitchen.search_recipe("Vegan  Stew for 7", live=True)
+        assert (page["source"], page["title"]) == ("nimble", "Real Vegan Stew")
+        assert page["body"].startswith("My story.") and "Ingredients: 2 tbsp olive oil" in page["body"]
+        assert len(page["body"]) <= kitchen.PAGE_CHARS
+
+        request = sent[0]
+        assert request.full_url == kitchen.NIMBLE_SEARCH
+        assert request.get_header("Authorization") == "Bearer test-key"
+        body = json.loads(request.data)
+        assert body["query"] == "Vegan  Stew for 7" and body["full_content"] is True
+
+        recorded = json.loads(cache.read_text())["recorded"]
+        assert list(recorded) == ["vegan stew for 7"] and recorded["vegan stew for 7"]["fetched_at"]
+
+        urllib.request.urlopen = unreachable
+        again = kitchen.search_recipe("vegan stew for 7", live=True)
+        assert again["source"] == "recorded"
+        assert (again["title"], again["body"]) == (page["title"], page["body"])
+
+
+def test_nimble_failure_falls_back_to_the_synthetic_page():
+    def urlopen(request, timeout):
+        raise OSError("connection refused")
+
+    with nimble(urlopen) as cache:
+        page = kitchen.search_recipe("vegan stew", live=True)
+        assert page["source"] == "cache" and page["title"].startswith("Hearty Vegan")
+        assert json.loads(cache.read_text())["recorded"] == {}
+
+
+def test_offline_never_calls_out_even_with_a_key():
+    with nimble(unreachable):
+        assert kitchen.search_recipe("a query nobody recorded")["source"] == "cache"
+
+
+def test_short_pages_start_at_the_top():
+    assert kitchen._recipe_part("Ingredients: oil.") == "Ingredients: oil."
+    assert kitchen._recipe_part("x" * 20_000) == "x" * kitchen.PAGE_CHARS
 
 
 if __name__ == "__main__":
