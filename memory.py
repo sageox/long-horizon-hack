@@ -139,18 +139,6 @@ STEP_SCHEMA = {
     "properties": {"item": {"type": "string"}, "status": {"type": "string", "enum": ["doing", "done"]}},
     "required": ["item", "status"],
 }
-JOBS = "List the jobs a home robot must do to reach this goal, each in two or three words."
-JOBS_SHOTS = [
-    ("Lunch for four at 13:00. Menu: tomato soup, bread, fruit salad.",
-     {"jobs": ["tomato soup", "bread", "fruit salad", "set the table"]}),
-]
-JOBS_SCHEMA = {
-    "type": "object",
-    "properties": {"jobs": {"type": "array", "items": {"type": "string"}}},
-    "required": ["jobs"],
-}
-
-
 def curate(system: str, shots: list, schema: dict, text: str) -> dict:
     messages = [{"role": "system", "content": system}]
     for asked, answer in shots:
@@ -172,8 +160,8 @@ DID = {
     "make_salad": ("salad", "salad made at {clock}"),
     "get_cloth_from_dryer": ("tablecloth", "tablecloth taken from the dryer at {clock}"),
     "get_cloth_from_bathroom_line": ("tablecloth", "tablecloth on the table, {clock}"),
-    "set_table_for_6": ("table", "table set for 6, {clock}"),
-    "set_table_for_7": ("table", "table set for 7, {clock}"),
+    "set_table_for_6": ("places", "table set for 6, {clock}"),
+    "set_table_for_7": ("places", "table set for 7, {clock}"),
 }
 
 NUMBERS = {w: n for n, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve".split())}
@@ -221,6 +209,7 @@ class TaskBoard:
         self.todo, self.doing, self.done = b.get("todo", []), b.get("doing", []), b.get("done", [])
         self.memories = b.get("memories", {})
         self.recent = deque(maxlen=10)
+        self.now = "08:00"
         self.changes = ["restored from its last board line"] if board else []
 
     def board(self) -> dict:
@@ -228,9 +217,14 @@ class TaskBoard:
                 "memories": self.memories}
 
     def observe(self, line: dict) -> None:
+        self.now = line["clock"]
         if "goal" in line:
             self.goal = line["goal"]
-            self.todo = curate(JOBS, JOBS_SHOTS, JOBS_SCHEMA, self.goal)["jobs"]
+            # Each dish on the goal's menu, then the table. Asked for this list, the 1.2B curator
+            # answered "prepare dinner, serve family, set table, serve guests": no stew to start.
+            menu = re.search(r"Menu: ([^.]+)", self.goal)
+            self.todo = [d.strip() for d in menu[1].split(",")] if menu else []
+            self.todo += ["lay the tablecloth", "set the places"]
             self.changes.append("goal and to do")
             return
         if "see" in line:  # one slot for what it sees: a see line comes every minute
@@ -284,9 +278,19 @@ class TaskBoard:
         self.memories[f"{label['kind']}:{name}"] = text
         self.changes.append(f"memory added: {label['kind']}:{name}")
 
+    def _timer(self, item: str) -> str:
+        """The board is the oven's timer: how long until a Doing item's take-out time. The ask comes
+        a minute after the last line observed, so one minute left reads as due now."""
+        due = re.search(r"Take it out at (\d\d):(\d\d)", item)
+        if not due:
+            return item
+        h, m = map(int, self.now.split(":"))
+        left = int(due[1]) * 60 + int(due[2]) - (h * 60 + m) - 1
+        return f"{item} (DUE NOW)" if left <= 0 else f"{item} (in {left} min)"
+
     def context(self) -> list[dict]:
         memories = [f"{k}: {v}" for k, v in self.memories.items()]
-        head = (f"Goal: {self.goal}\n\nBoard\nTo do:\n{bullets(self.todo)}\nDoing:\n{bullets(self.doing)}\n"
+        head = (f"Goal: {self.goal}\n\nBoard\nTo do:\n{bullets(self.todo)}\nDoing:\n{bullets(map(self._timer, self.doing))}\n"
                 f"Done:\n{bullets(self.done)}\n\nMemories:\n{bullets(memories)}\n\nRecent:\n")
         recent = [render(r) for r in self.recent]
         while True:  # the budget holds: the oldest recent lines go first

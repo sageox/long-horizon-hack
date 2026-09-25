@@ -35,12 +35,13 @@ every model call replayable from `cache/llm.jsonl`):
 | Full history | ✗ | ✗ | over 32K | over 32K | over 32K | over 32K | 0/6 |
 | Sliding window | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | 1/6 |
 | Rolling summary | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | 1/6 |
-| Task board | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | **4/6** |
+| Task board | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | **4/6** |
 
 Full history passes the 32,768-token window at 15:17 and can't plan any of the
-last four asks. The task board's prompt never passes 783 tokens. Its two
-misses: at 13:00 it fetched the tablecloth instead of starting the stew, and at
-16:30 it set six places before getting the cloth.
+last four asks. The task board's prompt never passes 802 tokens. Its two
+misses: at 16:32 it set six places, going by the goal's six instead of the
+12:00 update to seven, and at 17:45 it went for a cloth from the dryer
+instead of serving the stew.
 
 The sliding window is the control that matters: it has the same budget as the
 task board, so the difference is what gets kept, not how much. Six checks in
