@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dinner at six</title>
+<!--
+  The kitchen viewer: plays one events.jsonl, every robot side by side.
+
+  Serve the repo root and open /viewer/:
+    python3 -m http.server 8000   ->  http://localhost:8000/viewer/
+  ?events=../runs/<run>/events.jsonl   which file (default: the sample)
+  ?at=14:00  start there    ?autoplay=1    ?theme=dark|light
+  Or drop an events.jsonl anywhere on the page.
+  Keys: space play/pause, left/right 10 minutes, 1 2 4 speed, r restart.
+-->
+<style>
+  :root {
+    --bg: #f6f4ef; --panel: #ffffff; --ink: #1c1c1e; --muted: #6d6b66; --line: #e2ded4;
+    --pass: #1d8a4c; --pass-bg: #e3f4e9; --fail: #cf3b3b; --fail-bg: #fbe6e4;
+    --accent: #2e67d6; --web: #2e67d6; --board: #7446c4; --system: #b86e00;
+    --meter: #2e67d6; --meter-bg: #ecebe6; --dark: rgba(18, 18, 20, .86);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151517; --panel: #1f1f22; --ink: #f1f0ec; --muted: #9c9a94; --line: #34332f;
+      --pass: #4cc47e; --pass-bg: #173524; --fail: #f06a62; --fail-bg: #3d1c1a;
+      --accent: #7aa2ff; --web: #7aa2ff; --board: #b594ff; --system: #f0a53a;
+      --meter: #7aa2ff; --meter-bg: #2b2b2f; --dark: rgba(0, 0, 0, .88);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151517; --panel: #1f1f22; --ink: #f1f0ec; --muted: #9c9a94; --line: #34332f;
+    --pass: #4cc47e; --pass-bg: #173524; --fail: #f06a62; --fail-bg: #3d1c1a;
+    --accent: #7aa2ff; --web: #7aa2ff; --board: #b594ff; --system: #f0a53a;
+    --meter: #7aa2ff; --meter-bg: #2b2b2f; --dark: rgba(0, 0, 0, .88);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { display: flex; align-items: center; gap: 16px; padding: 12px 16px 6px; flex-wrap: wrap; }
+  .title { font-weight: 700; font-size: 18px; }
+  .title small { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 6px; }
+  .clock { font: 700 38px/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: -1px; margin-left: auto; }
+  .controls { display: flex; gap: 6px; align-items: center; }
+  button { font: inherit; font-size: 13px; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .badge { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
+  .mock { background: var(--fail); color: #fff; }
+  .src { color: var(--muted); font-size: 12px; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .timeline { position: relative; height: 58px; margin: 0 16px 10px; cursor: pointer; }
+  .track { position: absolute; left: 0; right: 0; top: 34px; height: 6px; border-radius: 3px; background: var(--meter-bg); }
+  .played { position: absolute; left: 0; top: 34px; height: 6px; border-radius: 3px; background: var(--accent); }
+  .tick { position: absolute; top: 43px; font-size: 11px; color: var(--muted); transform: translateX(-50%); }
+  .marker { position: absolute; font-size: 11px; line-height: 14px; white-space: nowrap; color: var(--muted); }
+  .marker.row0 { top: 0; } .marker.row1 { top: 16px; }
+  .marker.check { color: var(--ink); font-weight: 600; }
+  .marker.check::before { content: "● "; color: var(--accent); }
+  .marker.cut { color: var(--system); font-weight: 600; }
+
+  main { display: grid; grid-template-columns: repeat(var(--robots, 3), minmax(0, 1fr)); gap: 12px; padding: 0 16px 16px; }
+  .robot { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px; display: flex; flex-direction: column; gap: 9px; min-height: 70vh; overflow: hidden; }
+  .robot.overflow { border-color: var(--fail); box-shadow: inset 0 0 0 1px var(--fail); }
+  .robot h2 { margin: 0; font-size: 17px; }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .score { font: 700 26px/1 ui-monospace, Menlo, monospace; }
+  .score small { font-size: 15px; color: var(--muted); }
+  .blurb { margin: -4px 0 0; color: var(--muted); font-size: 13px; }
+
+  .meter { position: relative; height: 14px; border-radius: 7px; background: var(--meter-bg); overflow: visible; }
+  .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 7px; background: var(--meter); transition: width .15s linear; }
+  .overflow .fill { background: var(--fail); }
+  .budget { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--muted); opacity: .6; }
+  .wall { position: absolute; right: -1px; top: -5px; bottom: -5px; width: 3px; background: var(--fail); border-radius: 2px; }
+  .ctx { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: -5px; }
+  .ctx b { color: var(--ink); font-family: ui-monospace, Menlo, monospace; }
+  .overflow .ctx b { color: var(--fail); }
+  .banner { font-size: 13px; font-weight: 700; padding: 6px 9px; border-radius: 8px; }
+  .banner.bad { background: var(--fail-bg); color: var(--fail); }
+  .banner.good { background: var(--pass-bg); color: var(--pass); }
+
+  .checks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 0; padding: 0; list-style: none; }
+  .checks li { font-size: 12px; padding: 5px 6px; border-radius: 7px; border: 1px solid var(--line); color: var(--muted);
+    display: flex; gap: 5px; align-items: center; transition: background .3s; }
+  .checks li::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--line); flex: none; }
+  .checks li.pass { background: var(--pass-bg); color: var(--pass); border-color: transparent; font-weight: 600; }
+  .checks li.pass::before { background: var(--pass); }
+  .checks li.fail { background: var(--fail-bg); color: var(--fail); border-color: transparent; font-weight: 600; }
+  .checks li.fail::before { background: var(--fail); }
+  .checks li.now { outline: 2px solid currentColor; }
+  .decision { font-size: 13px; min-height: 2.8em; }
+  .decision code { font-weight: 700; }
+  .decision .why { color: var(--muted); }
+
+  .state { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
+  .state li { font-size: 12px; padding: 2px 7px; border-radius: 999px; background: var(--meter-bg); }
+  .state li.bad { background: var(--fail-bg); color: var(--fail); }
+  .state b { font-weight: 600; }
+
+  .sees { font-size: 12px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 8px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.8em; }
+
+  .board { font-size: 12px; border: 1px dashed var(--board); border-radius: 8px; padding: 7px 8px; }
+  .board h3 { margin: 0 0 4px; font-size: 12px; color: var(--board); text-transform: uppercase; letter-spacing: .04em; }
+  .board ul { margin: 0 0 5px; padding-left: 16px; }
+  .board .key { font-family: ui-monospace, Menlo, monospace; color: var(--board); }
+
+  .feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+  .feed li { display: flex; gap: 7px; }
+  .feed time { color: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 12px; flex: none; padding-top: 1px; }
+  .feed .web { color: var(--web); }
+  .feed .board { color: var(--board); border: 0; padding: 0; }
+  .feed .system { color: var(--system); font-weight: 600; }
+  .feed .error { color: var(--fail); font-weight: 700; }
+  .feed .action { font-weight: 600; }
+  .feed .ok { color: var(--pass); } .feed .no { color: var(--fail); }
+
+  .dark { position: absolute; inset: 0; background: var(--dark); color: #fff; display: grid; place-items: center;
+    text-align: center; font-weight: 700; font-size: 18px; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .robot.cut .dark { opacity: 1; }
+
+  .final { position: fixed; inset: 0; background: var(--dark); display: grid; place-items: center; z-index: 5; }
+  .final[hidden], .drop[hidden] { display: none; }
+  .card { background: var(--panel); border-radius: 16px; padding: 22px 26px; min-width: min(560px, 92vw); }
+  .card h2 { margin: 0 0 12px; }
+  .card table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .card td, .card th { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: center; }
+  .card td:first-child, .card th:first-child { text-align: left; }
+  .card .n { font: 700 22px ui-monospace, Menlo, monospace; }
+  .drop { position: fixed; inset: 12px; border: 3px dashed var(--accent); border-radius: 16px; background: var(--bg);
+    display: grid; place-items: center; text-align: center; padding: 24px; z-index: 6; color: var(--muted); }
+  @media (max-width: 720px) { main { grid-template-columns: 1fr; } .robot { min-height: 0; } .clock { font-size: 28px; } .marker { display: none; } }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="title">Dinner at six <small>one goal at 08:00, graded at 18:00</small></div>
+  <span class="badge mock" id="mock" hidden>MOCK DATA · not a run</span>
+  <span class="src" id="src"></span>
+  <div class="clock" id="clock">08:00</div>
+  <div class="controls">
+    <button id="restart" title="Restart (r)">⏮</button>
+    <button id="play" title="Play or pause (space)">▶ Play</button>
+    <button data-speed="1" aria-pressed="true">1×</button>
+    <button data-speed="2">2×</button>
+    <button data-speed="4">4×</button>
+  </div>
+</div>
+<div class="timeline" id="timeline"><div class="track"></div><div class="played" id="played"></div></div>
+<main id="robots"></main>
+<div class="final" id="final" hidden><div class="card" id="card"></div></div>
+<div class="drop" id="drop" hidden><div id="dropText">Drop an events.jsonl here</div></div>
+
+<script>
+const MINUTE_SECONDS = 0.3;   // one simulated minute; the Tinybird streamer uses the same
+const DAY_END = 600;          // 18:00
+const WALL = 32768, BUDGET = 4096;
+const ORDER = ["full_history", "sliding_window", "task_board", "rolling_summary"];
+const NAMES = { full_history: "Full history", sliding_window: "Sliding window", task_board: "Task board", rolling_summary: "Rolling summary" };
+const BLURBS = {
+  full_history: "Keeps every line it has seen.",
+  sliding_window: "Keeps the goal and the newest 4,096 tokens.",
+  task_board: "Keeps a board, labelled memories and the last 10 lines, in Tinybird.",
+  rolling_summary: "Rewrites a running summary when the window fills.",
+};
+const CHECKS = [
+  ["crumble_out", "Crumble out"], ["stew_vegan", "Vegan stew"], ["cloth", "Tablecloth"],
+  ["seven_places", "Seven places"], ["roast_out", "Roast out"], ["salted_once", "Salted once"],
+];
+const MARKERS = [  // [minute, label, row, class, anchor], fixed by fixtures/script.jsonl
+  [60, "Leo is vegan", 0], [182, "dryer breaks", 0], [240, "Mia: seven", 0],
+  [330, "salted", 0, "", "end"], [360, "roast in", 0, "", "start"],
+  [180, "crumble", 1, "check"], [300, "stew", 1, "check"], [370, "power cut", 1, "cut"],
+  [511, "table", 1, "check"], [570, "roast", 1, "check", "end"], [585, "salt", 1, "check", "start"],
+];
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const hhmm = t => `${String(8 + Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t) % 60).padStart(2, "0")}`;
+const fmt = n => Number(n || 0).toLocaleString("en-US");
+
+let byRobot = new Map(), robots = [], sim = 0, playing = false, speed = 1, lastFrame = null, states = {}, drawnMinute = -1;
+
+const params = new URLSearchParams(location.search);
+if (params.get("theme")) document.documentElement.dataset.theme = params.get("theme");
+
+async function load() {
+  const src = params.get("events") || "../fixtures/events.sample.jsonl";
+  try {
+    const r = await fetch(src);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    setData(await r.text(), src);
+  } catch (e) {
+    showDrop(`Couldn't load ${src} (${e.message}).<br>Serve the repo root with <code>python3 -m http.server</code> and open <code>/viewer/</code>, or drop an events.jsonl here.`);
+  }
+}
+
+function setData(text, src) {
+  const rows = text.split("\n").filter(l => l.trim()).map(l => JSON.parse(l));
+  byRobot = new Map();
+  for (const r of rows) {
+    if (!byRobot.has(r.robot)) byRobot.set(r.robot, []);
+    byRobot.get(r.robot).push(r);
+  }
+  for (const list of byRobot.values()) list.sort((a, b) => a.t - b.t);  // stable: file order within a minute
+  const rank = r => (ORDER.indexOf(r) + 1) || 99;
+  robots = [...byRobot.keys()].sort((a, b) => rank(a) - rank(b));
+  $("#mock").hidden = !rows.some(r => r.mock);
+  $("#src").textContent = src;
+  $("#src").title = src;
+  $("#drop").hidden = true;
+  build();
+  seek(params.get("at") ? toMinute(params.get("at")) : 0);
+  if (params.get("autoplay")) setPlaying(true);
+}
+
+const toMinute = s => { const [h, m] = s.split(":").map(Number); return Math.max(0, Math.min(DAY_END, (h - 8) * 60 + m)); };
+
+function build() {
+  const main = $("#robots");
+  main.style.setProperty("--robots", robots.length);
+  main.innerHTML = robots.map(r => `
+    <section class="robot" data-robot="${esc(r)}">
+      <div class="head"><h2>${esc(NAMES[r] || r)}</h2><div class="score"><span class="n">0</span><small>/${CHECKS.length}</small></div></div>
+      <p class="blurb">${esc(BLURBS[r] || "")}</p>
+      <div class="meter"><div class="fill"></div><div class="budget" style="left:${BUDGET / WALL * 100}%" title="4,096 budget"></div><div class="wall" title="32,768: LFM2.5-1.2B's window"></div></div>
+      <div class="ctx"><span><b class="tok">0</b> tokens in the prompt</span><span>wall 32,768</span></div>
+      <div class="banner-slot"></div>
+      <ol class="checks">${CHECKS.map(([id, label]) => `<li data-check="${id}">${label}</li>`).join("")}</ol>
+      <div class="decision"></div>
+      <ul class="state"></ul>
+      <div class="sees"></div>
+      <div class="board-slot"></div>
+      <ol class="feed"></ol>
+      <div class="dark"><div>Power cut<br><small>restarting…</small></div></div>
+    </section>`).join("");
+  const tl = $("#timeline");
+  tl.querySelectorAll(".tick, .marker").forEach(n => n.remove());
+  for (let h = 0; h <= 10; h++) tl.insertAdjacentHTML("beforeend", `<span class="tick" style="left:${h * 10}%">${8 + h}:00</span>`);
+  const shift = { start: "0", end: "-100%" };
+  for (const [t, label, row, cls = "", anchor] of MARKERS)
+    tl.insertAdjacentHTML("beforeend", `<span class="marker row${row} ${cls}" title="${hhmm(t)}"
+      style="left:${t / DAY_END * 100}%;transform:translateX(${shift[anchor] || "-50%"})">${esc(label)}</span>`);
+}
+
+function fresh() {
+  return { i: 0, ctx: 0, checks: {}, last: null, board: null, feed: [], sees: "", actions: [],
+           cutAt: null, restoredAt: null, overflowAt: null, score: 0 };
+}
+
+function apply(s, r) {
+  if (r.context_tokens != null) s.ctx = r.context_tokens;
+  if (s.overflowAt == null && (r.kind === "error" || s.ctx > WALL)) s.overflowAt = r.t;
+  if (r.kind === "see") { s.sees = r.text; return; }
+  if (r.check) {
+    s.checks[r.check] = { pass: !!r.pass, t: r.t };
+    s.last = r;
+    if (r.pass) s.score++;
+  }
+  if (r.kind === "board" && r.board) {
+    try { s.board = typeof r.board === "string" ? JSON.parse(r.board) : r.board; } catch (e) { /* keep the last good board */ }
+    if (/restored/i.test(r.text)) s.restoredAt = r.t;
+  }
+  if (r.kind === "system" && /power cut/i.test(r.text)) s.cutAt = r.t;
+  if (r.kind === "action" && r.action) s.actions.push([r.t, r.action]);
+  s.feed.push(r);
+  if (s.feed.length > 30) s.feed.shift();
+}
+
+// Display only: what the fixed script did by minute t, then the robot's own actions.
+function kitchen(s, t) {
+  const k = {};
+  if (t >= 160) k.crumble = ["in the oven"];
+  if (t >= 185) k.cloth = ["on the bathroom line"];
+  if (t >= 330) k.salt = 1;
+  if (t >= 360) k.roast = ["in the oven"];
+  for (const [, a] of s.actions) {
+    if (a === "take_crumble_out") k.crumble = ["out"];
+    if (a === "take_roast_out") k.roast = ["out"];
+    if (a === "stew_with_oil") k.stew = ["olive oil"];
+    if (a === "stew_with_butter") k.stew = ["butter", "bad"];
+    if (a === "add_salt") k.salt = (k.salt || 0) + 1;
+    if (a === "serve_stew") k.served = ["served"];
+    if (a === "make_salad") k.salad = ["made"];
+    if (a === "get_cloth_from_bathroom_line") k.cloth = ["on the table"];
+    if (a === "get_cloth_from_dryer") k.cloth = ["not in the dryer", "bad"];
+    if (a === "set_table_for_6") k.table = ["6 places", "bad"];
+    if (a === "set_table_for_7") k.table = ["7 places"];
+  }
+  if (t >= 570 && k.roast && k.roast[0] === "in the oven") k.roast = ["still in the oven", "bad"];
+  const chips = [];
+  if (k.crumble) chips.push(["Crumble", ...k.crumble]);
+  if (k.stew) chips.push(["Stew", ...k.stew]);
+  if (k.salt) chips.push(["Salted", k.salt === 1 ? "once" : `${k.salt} times`, k.salt > 1 ? "bad" : ""]);
+  if (k.roast) chips.push(["Roast", ...k.roast]);
+  if (k.cloth) chips.push(["Cloth", ...k.cloth]);
+  if (k.table) chips.push(["Table", ...k.table]);
+  if (k.served) chips.push(["Stew", ...k.served]);
+  return chips;
+}
+
+function seek(t) {
+  sim = Math.max(0, Math.min(DAY_END, t));
+  states = Object.fromEntries(robots.map(r => [r, fresh()]));
+  drawnMinute = -1;
+  advance();
+  draw(true);
+}
+
+function advance() {
+  let moved = false;
+  for (const r of robots) {
+    const s = states[r], list = byRobot.get(r);
+    while (s.i < list.length && list[s.i].t <= sim) { apply(s, list[s.i++]); moved = true; }
+  }
+  return moved;
+}
+
+function feedItem(r) {
+  let body;
+  if (r.kind === "web") body = `searched “${esc(r.query)}” → ${esc(r.text)}`;
+  else if (r.kind === "action") body = `<code>${esc(r.action || r.text)}</code>${r.check ? (r.pass ? ' <span class="ok">✓</span>' : ' <span class="no">✕</span>') : ""}`;
+  else if (r.kind === "error") body = `✕ ${esc(r.text)}`;
+  else body = esc(r.text);
+  return `<li><time>${esc(r.clock)}</time><span class="${esc(r.kind)}">${body}</span></li>`;
+}
+
+function draw(force) {
+  const minute = Math.floor(sim);
+  $("#clock").textContent = hhmm(Math.min(sim, DAY_END));
+  $("#played").style.width = `${sim / DAY_END * 100}%`;
+  if (!force && minute === drawnMinute) return;
+  drawnMinute = minute;
+  for (const r of robots) {
+    const s = states[r], el = $(`.robot[data-robot="${CSS.escape(r)}"]`);
+    el.querySelector(".n").textContent = s.score;
+    el.querySelector(".fill").style.width = `${Math.min(100, s.ctx / WALL * 100)}%`;
+    el.querySelector(".tok").textContent = fmt(s.ctx);
+    const over = s.overflowAt != null;
+    el.classList.toggle("overflow", over);
+    el.classList.toggle("cut", s.cutAt != null && sim - s.cutAt < 6);
+    let banner = "";
+    if (over) banner = `<div class="banner bad">Over the 32,768-token window since ${hhmm(s.overflowAt)}: it can no longer plan.</div>`;
+    else if (s.restoredAt != null && sim - s.restoredAt < 40) banner = `<div class="banner good">Board restored from Tinybird at ${hhmm(s.restoredAt)}.</div>`;
+    el.querySelector(".banner-slot").innerHTML = banner;
+    for (const li of el.querySelectorAll(".checks li")) {
+      const c = s.checks[li.dataset.check];
+      li.className = c ? (c.pass ? "pass" : "fail") : "";
+      if (c && s.last && s.last.check === li.dataset.check && sim - c.t < 15) li.classList.add("now");
+    }
+    const d = s.last;
+    el.querySelector(".decision").innerHTML = d
+      ? `${esc(d.clock)} <code>${esc(d.action || d.text)}</code> ${d.pass ? '<span style="color:var(--pass)">✓</span>' : '<span style="color:var(--fail)">✕</span>'}<br><span class="why">${esc(d.reason || d.text)}</span>`
+      : `<span class="why">No decisions yet.</span>`;
+    el.querySelector(".state").innerHTML = kitchen(s, sim).map(([k, v, bad]) => `<li class="${bad || ""}"><b>${k}</b> ${esc(v)}</li>`).join("");
+    el.querySelector(".sees").textContent = s.sees ? `Sees: ${s.sees}` : "";
+    el.querySelector(".board-slot").innerHTML = s.board ? boardHtml(s.board) : "";
+    el.querySelector(".feed").innerHTML = s.feed.slice(-8).reverse().map(feedItem).join("");
+  }
+  if (sim >= DAY_END && !$("#final").dataset.shown) showFinal();
+}
+
+function boardHtml(b) {
+  const mem = Object.entries(b.memories || {});
+  const doing = b.doing || [], done = b.done || [], todo = b.todo || [];
+  return `<div class="board"><h3>Board in Tinybird</h3>
+    ${mem.length ? `<ul>${mem.map(([k, v]) => `<li><span class="key">${esc(k)}</span> ${esc(v)}</li>`).join("")}</ul>` : ""}
+    ${doing.length ? `<div><b>Doing:</b> ${doing.map(esc).join("; ")}</div>` : ""}
+    <div><b>Done:</b> ${done.map(esc).join(", ") || "none"} · <b>To do:</b> ${todo.map(esc).join(", ") || "none"}</div></div>`;
+}
+
+function showFinal() {
+  $("#final").dataset.shown = "1";
+  const rows = robots.map(r => {
+    const s = states[r];
+    return `<tr><td>${esc(NAMES[r] || r)}</td>${CHECKS.map(([id]) => {
+      const c = s.checks[id];
+      return `<td>${c ? (c.pass ? '<span style="color:var(--pass)">✓</span>' : '<span style="color:var(--fail)">✕</span>') : "·"}</td>`;
+    }).join("")}<td class="n">${s.score}/${CHECKS.length}</td></tr>`;
+  }).join("");
+  $("#card").innerHTML = `<h2>18:00. The family arrives.${$("#mock").hidden ? "" : ' <span class="badge mock">MOCK DATA</span>'}</h2>
+    <table><tr><th></th>${CHECKS.map(([, l]) => `<th>${l}</th>`).join("")}<th></th></tr>${rows}</table>`;
+  $("#final").hidden = false;
+  setPlaying(false);
+}
+
+function setPlaying(on) {
+  playing = on;
+  $("#play").textContent = on ? "❚❚ Pause" : "▶ Play";
+  lastFrame = null;
+  if (on) {
+    if (sim >= DAY_END) restart();
+    requestAnimationFrame(frame);
+  }
+}
+
+function restart() {
+  $("#final").hidden = true;
+  delete $("#final").dataset.shown;
+  seek(0);
+}
+
+function frame(now) {
+  if (!playing) return;
+  if (lastFrame != null) sim = Math.min(DAY_END, sim + (now - lastFrame) / 1000 / MINUTE_SECONDS * speed);
+  lastFrame = now;
+  const moved = advance();
+  draw(moved);
+  requestAnimationFrame(frame);
+}
+
+function showDrop(html) { $("#dropText").innerHTML = html; $("#drop").hidden = false; }
+
+$("#play").onclick = () => setPlaying(!playing);
+$("#restart").onclick = () => { restart(); };
+for (const b of document.querySelectorAll("[data-speed]")) b.onclick = () => {
+  speed = Number(b.dataset.speed);
+  document.querySelectorAll("[data-speed]").forEach(x => x.setAttribute("aria-pressed", x === b));
+};
+$("#timeline").onclick = e => {
+  const box = e.currentTarget.getBoundingClientRect();
+  $("#final").hidden = true;
+  delete $("#final").dataset.shown;
+  seek((e.clientX - box.left) / box.width * DAY_END);
+};
+$("#final").onclick = () => { $("#final").hidden = true; };
+addEventListener("keydown", e => {
+  if (e.target.closest("input, textarea")) return;
+  if (e.key === " ") { e.preventDefault(); setPlaying(!playing); }
+  else if (e.key === "ArrowRight") seek(sim + 10);
+  else if (e.key === "ArrowLeft") { $("#final").hidden = true; delete $("#final").dataset.shown; seek(sim - 10); }
+  else if (e.key === "r") restart();
+  else if ("124".includes(e.key)) document.querySelector(`[data-speed="${e.key}"]`)?.click();
+});
+addEventListener("dragover", e => { e.preventDefault(); showDrop("Drop an events.jsonl here"); });
+addEventListener("dragleave", e => { if (!e.relatedTarget) $("#drop").hidden = true; });
+addEventListener("drop", async e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f) { setPlaying(false); $("#final").hidden = true; delete $("#final").dataset.shown; setData(await f.text(), f.name); }
+});
+load();
+</script>
+</body>
+</html>
