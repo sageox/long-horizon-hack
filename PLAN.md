@@ -32,7 +32,7 @@ tablecloth on the table, seven places, roast out on time, stew salted once.
 | **Liquid AI** | The robot's brain. LFM2.5-1.2B picks every action; LFM2.5-350M decides which events become memories. Both local. The 1.2B model's 32,768-token window is the wall full history hits at 14:51. | agreed |
 | **Tinybird** | The robot's memory outside the model: task board, memories, event log. The 14:10 reboot reads it; the live dashboard polls it. | agreed |
 | **AWS** | Bedrock plans instead if LFM2.5-1.2B fails the 13:30 go/no-go. | agreed, fallback |
-| **Black Forest Labs** | **FLUX 3 Action** as the robot's hands: executes the planner's instruction for one step, the 17:30 roast. **FLUX 3 Video** if there's no GPU. | proposed (Faridun), needs a GPU |
+| **Black Forest Labs** | **FLUX 3 Action** as the robot's hands: executes the planner's instruction for one step, the 17:30 roast. Run once on a GPU, recorded, played on stage. | Faridun's pick, needs a GPU |
 | **Nimble** | Recipe lookup when the stew starts at 13:00. The query depends on memory: the window robot forgot Leo is vegan and searches for the wrong stew. | proposed (Faridun), open |
 
 **Why FLUX 3 Action fits.** It is a 7B robot policy: camera frames, joint state
@@ -165,10 +165,10 @@ laptop, so pitch the 32K wall, not slow reactions.
 6. Tinybird behind the board and the chart; the 14:10 reboot reads from it.
    The right half of the screen polls the four endpoints.
 7. FLUX 3 Action on the 17:30 roast step, if BFL gives us a GPU: the planner's
-   `take_roast_out` becomes the policy's instruction. If there's no GPU, FLUX 3
-   Video instead: Ruth speaks her lines, and each robot's 18:00 table as a clip
-   prompted from its scorecard. Hosted API, about two minutes and under a dollar
-   per clip, pre-generated and cached. Freeze at 15:30.
+   `take_roast_out` becomes the policy's instruction. Run it once on a GPU
+   (BFL's, or an AWS GPU instance, which also makes AWS a sponsor we actually
+   use), record the predicted actions and video, and play the recording.
+   Freeze at 15:30.
 8. Rehearse the three minutes twice. Submit at 16:15.
 
 If behind, cut in this order: FLUX, the live power cut (keep it in the video),
@@ -193,8 +193,14 @@ Checked at 12:40. Each has an owner and a time.
   lists an H200; it won't run on either Mac, and there is no hosted API in the
   docs. Ask the BFL table whether they host inference or lend GPUs for the
   Action track, and whether the BFL prize covers all FLUX models or only
-  Action. Faridun, now. If there's no GPU, show the planner emitting the
-  instruction, say plainly that no rollout ran, and switch to FLUX 3 Video.
+  Action. Faridun, now. If BFL can't, an AWS GPU instance (L40S or larger).
+  With no GPU at all, show the planner emitting the instruction and say
+  plainly that no rollout ran.
+- **Tool Use needs three sponsor tools that actually run.** Liquid and
+  Tinybird are certain. Bedrock runs only if the planner fails at 13:30;
+  FLUX 3 Action only with a GPU; Nimble is undecided. If the planner passes
+  and no GPU turns up, we have two. Running FLUX 3 Action on AWS covers two
+  sponsors at once; Nimble is the one that needs nothing but a laptop.
 - ~~**Faridun's last commit (11:18) was the web-research fixture.**~~ Done:
   `fixtures/day.jsonl` and `fixtures/menu.json` replaced it, reproducing
   2/6, 1/6, 6/6. The switch is confirmed.
