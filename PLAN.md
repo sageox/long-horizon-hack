@@ -34,14 +34,26 @@ One JSON object per line: something that happens, or the world asking the
 robot what to do next. **Agree this now and nothing else needs coordinating.**
 
 ```json
+{"t": 59, "clock": "08:59", "see": "Kitchen. Ruth at the table with tea. Radio on."}
 {"t": 60, "clock": "09:00", "event": "Ruth: 'Leo told me he's vegan now, you know.'"}
 {"t": 570, "clock": "17:30", "ask": "what next?",
- "menu": ["take_roast_out", "tidy_living_room", "make_salad", "set_table", "wait"],
  "check": {"id": "roast_out", "pass_if": "take_roast_out"}}
 ```
 
 `t` is minutes since 08:00. The robot never sees `check`; the harness grades
 the chosen action against it by string match.
+
+One `see` line every minute, about 75 tokens each. That density is what fills
+32K by mid-afternoon; the ~40 events alone come to about 3K and full history
+would never hit the wall.
+
+The action menu is one fixed list in `kitchen.py`, the same on every ask. A
+menu that offers `take_roast_out` only while the roast is in hands every robot
+the answer.
+
+The script is fixed. Actions change graded state (roast in or out, salt count,
+places set), never which events happen next, so a robot that goes wrong early
+doesn't send the day down a branch nobody wrote.
 
 ## Split
 
@@ -65,7 +77,7 @@ class Memory:
     def context(self) -> list[dict]: ...          # the planner's prompt
 ```
 
-Three implementations, each given the same planner:
+Three implementations, each given the same planner (a fourth if there's time):
 
 - `FullHistory`: every event. Past 32,768 tokens the planner call fails and we
   log it. No silent truncation, or it becomes a worse sliding window.
@@ -74,11 +86,21 @@ Three implementations, each given the same planner:
   start times), memories keyed by label (`constraint:leo_vegan`,
   `lesson:dryer_broken`, `update:guests=7`), and the last 10 events. Every
   change goes to Tinybird before the planner runs, so a reboot loses nothing.
+- `RollingSummary(4096)`, if done by 14:15: when the window fills, LFM rewrites
+  a running summary. This is what production agents do, and judges will ask
+  "why not just summarize?" Whatever it scores, it's the honest comparison.
 
 Curator: LFM2.5-350M labels each event constraint / lesson / update / noise.
 Planner: LFM2.5-1.2B picks one action from the menu. Both run locally through
-Ollama or llama.cpp. Count tokens with the LFM tokenizer so the 32K wall is
-real.
+Ollama or llama.cpp; neither is installed on Madhur's laptop yet. Weights:
+`LiquidAI/LFM2.5-1.2B-Instruct-GGUF` and `LiquidAI/LFM2.5-350M-GGUF`;
+`LiquidAI/LFM2-1.2B-Tool-GGUF` is a tool-calling variant to try if the planner
+struggles to pick from the menu.
+
+Ollama's default context is far below 32K, and it truncates an overlong
+prompt without an error. Left alone, full history quietly becomes a sliding
+window and never hits the wall. Set `num_ctx` to 32768, count tokens before
+every call, and fail the call ourselves when it's over.
 
 ## Order
 
@@ -97,6 +119,36 @@ If behind, cut in this order: FLUX, the live power cut (keep it in the video),
 the Tinybird chart (the board still persists), the LFM planner. Never cut the
 single all-day goal, the board, the 32K wall, the six checks, or the equal 4K
 budget for window and board.
+
+## Blind spots
+
+Checked at 12:40. Each has an owner and a time.
+
+- **The repo is private.** Submission needs a public repo. Check the history
+  for secrets and make it public before 16:00. Madhur.
+- **Keys.** Tinybird workspace token, FLUX API key, Bedrock credentials (the
+  planner fallback). Nobody has checked they work. Madhur, by 13:00.
+- **Faridun's last commit (11:18) was the web-research fixture.** Confirm the
+  switch before either of you writes more code.
+- **Six checks, one run.** A robot with no memory can guess a two-way choice
+  right. Temperature 0, show the model's stated reason for each check, and
+  run three days with different `see` noise if time allows. Say "in our run",
+  not "always".
+- **The live power cut has to be live.** Run the task-board robot for real
+  from 14:00, with model calls served from the cache by prompt hash. If the
+  board comes back right, every prompt after the restart matches the recorded
+  run and hits the cache; a miss means the restore went wrong. It's fast on
+  stage and it checks itself.
+- **Reading straight back from Tinybird.** Ingest may lag a few seconds behind
+  the write. Write to local JSONL first; on reboot read Tinybird and compare
+  with the local log, and show both if they differ.
+- **Tinybird is the biggest prize pool** and we use it lightly. A live
+  dashboard (context, latency and checks per robot, per minute) is cheap and
+  worth the 30 minutes.
+- **Unknowns about the event.** Ask the organizers how long a finalist demo is
+  and what judges score. Host the video somewhere with a shareable link.
+- **The README states the result before the run.** Replace it with the real
+  scorecard at 14:45.
 
 ## Rules for today
 
