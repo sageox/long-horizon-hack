@@ -28,6 +28,29 @@ tablecloth on the table, seven places, roast out on time, stew salted once.
 Nimble is out; there is no web data in a kitchen. Liquid, Tinybird and FLUX
 are in.
 
+### On stage: the kitchen and Tinybird side by side
+
+The left half of the screen is the kitchen viewer playing the day. The right
+half is a live Tinybird dashboard, and every panel on it is a Tinybird
+endpoint polled once a second, not a copy of the viewer's data. The harness
+streams `events.jsonl` into Tinybird at playback speed, so the right side
+fills as the day plays.
+
+| Panel | Endpoint | What it shows |
+|---|---|---|
+| Context per robot | `context_by_minute` | three lines climbing, the 32K wall |
+| Scorecard | `checks_by_robot` | checks filling in as they happen |
+| The board | `board_for_robot?robot=task_board` | exactly what the robot reads when it wakes |
+| Event tail | `latest_events` | rows landing, per robot |
+
+At the power cut the left robot goes dark, its event tail stops, and the board
+panel stays: "this is what it wakes up with." On restart the robot reads that
+same endpoint and its rows start landing again. The audience sees the robot's
+memory living in Tinybird, not in the process.
+
+If Tinybird fails on the day, the right half reads local JSONL and is labelled
+as such.
+
 ## The contract: `day.jsonl`
 
 One JSON object per line: something that happens, or the world asking the
@@ -92,15 +115,21 @@ Three implementations, each given the same planner (a fourth if there's time):
 
 Curator: LFM2.5-350M labels each event constraint / lesson / update / noise.
 Planner: LFM2.5-1.2B picks one action from the menu. Both run locally through
-Ollama or llama.cpp; neither is installed on Madhur's laptop yet. Weights:
+Ollama (0.34.4, installed, both models pulled). Weights:
 `LiquidAI/LFM2.5-1.2B-Instruct-GGUF` and `LiquidAI/LFM2.5-350M-GGUF`;
 `LiquidAI/LFM2-1.2B-Tool-GGUF` is a tool-calling variant to try if the planner
 struggles to pick from the menu.
 
-Ollama's default context is far below 32K, and it truncates an overlong
-prompt without an error. Left alone, full history quietly becomes a sliding
-window and never hits the wall. Set `num_ctx` to 32768, count tokens before
-every call, and fail the call ourselves when it's over.
+Ollama truncates an overlong prompt without an error. Measured at 12:50: with
+`num_ctx` 32768, a ~50K-token prompt came back with `prompt_eval_count` 16,387
+and a normal answer. Left alone, full history quietly becomes a sliding window
+and never hits the wall. Count tokens ourselves with the LFM tokenizer
+(`tokenizers` package, `tokenizer.json` from the model repo) before every
+call, pass `num_ctx` 32768, and fail the call when the count is over. Don't
+trust `prompt_eval_count`; it's measured after truncation.
+
+Latency is not the story. A 12K-token prompt took 1.4 to 2 seconds on this
+laptop, so pitch the 32K wall, not slow reactions.
 
 ## Order
 
@@ -112,6 +141,7 @@ every call, and fail the call ourselves when it's over.
 4. 14:15: integrate. Full day, three scorecards, one command.
 5. 14:45: viewer plays the day. **Submittable here.** Record a backup video.
 6. Tinybird behind the board and the chart; the 14:10 reboot reads from it.
+   The right half of the screen polls the four endpoints.
 7. FLUX kitchen and 18:00 tables, pre-generated. Freeze at 15:30.
 8. Rehearse the three minutes twice. Submit at 16:15.
 
@@ -124,8 +154,12 @@ budget for window and board.
 
 Checked at 12:40. Each has an owner and a time.
 
-- **The repo is private.** Submission needs a public repo. Check the history
-  for secrets and make it public before 16:00. Madhur.
+- ~~**The repo is private.**~~ Done 12:48: history scanned for secrets (none),
+  repo made public.
+- ~~**No local runtime.**~~ Done 12:50: Ollama installed as a service, both LFM
+  models pulled.
+- **Silent truncation.** Confirmed, see above. Madhur, in the planner wrapper
+  before the 13:30 gate.
 - **Keys.** Tinybird workspace token, FLUX API key, Bedrock credentials (the
   planner fallback). Nobody has checked they work. Madhur, by 13:00.
 - **Faridun's last commit (11:18) was the web-research fixture.** Confirm the
@@ -142,9 +176,10 @@ Checked at 12:40. Each has an owner and a time.
 - **Reading straight back from Tinybird.** Ingest may lag a few seconds behind
   the write. Write to local JSONL first; on reboot read Tinybird and compare
   with the local log, and show both if they differ.
-- **Tinybird is the biggest prize pool** and we use it lightly. A live
-  dashboard (context, latency and checks per robot, per minute) is cheap and
-  worth the 30 minutes.
+- **Tinybird is the biggest prize pool.** Covered by the side-by-side above.
+  Set up the workspace and the four endpoints by 14:15 so the live panel is
+  tested before the submittable gate. Risk: workspace setup eats time; check
+  the account and token at 13:00.
 - **Unknowns about the event.** Ask the organizers how long a finalist demo is
   and what judges score. Host the video somewhere with a shareable link.
 - **The README states the result before the run.** Replace it with the real
