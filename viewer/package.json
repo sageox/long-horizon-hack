@@ -1,0 +1,13 @@
+{
+  "name": "dinner-at-six-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "python3 ../mock_run.py --out ../runs/mock/events.jsonl",
+    "dev": "python3 serve.py",
+    "test": "node --test replay.test.js && python3 -m unittest test_serve.py"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  }
+}
