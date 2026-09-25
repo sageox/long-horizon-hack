@@ -65,6 +65,37 @@ class SlidingWindow(FullHistory):
             self.lines.pop(0)
 
 
+SUMMARIZE = (
+    "You keep the notes of a home robot that has one goal for the day. Rewrite the notes so they "
+    "also cover the new lines. Keep what the goal will need later: what people said about food or "
+    "guests, what broke and what was done instead, what is cooking and since when, and what the "
+    "robot already did. Leave out scenery, the radio and small talk. At most 200 words.\n\n"
+)
+
+
+class RollingSummary(FullHistory):
+    """The goal, a running summary, and the newest lines. When the budget fills, LFM2.5-1.2B folds
+    the oldest half of the lines into the summary."""
+
+    def __init__(self, budget: int, log: Path):
+        self.budget, self.summary = budget, ""
+        super().__init__(log)
+
+    def _add(self, line: dict) -> None:
+        super()._add(line)
+        while self.lines and tokens(self.context()) > self.budget:
+            half = max(1, len(self.lines) // 2)
+            old, self.lines = self.lines[:half], self.lines[half:]
+            notes = f"Notes so far:\n{self.summary or 'none'}\n\nNew lines:\n" + "\n".join(old)
+            system = SUMMARIZE + (self.goal or "")
+            self.summary = llm.chat(llm.PLANNER, [{"role": "system", "content": system},
+                                                  {"role": "user", "content": notes}]).strip()
+
+    def context(self) -> list[dict]:
+        parts = [self.goal, f"Summary so far:\n{self.summary}" if self.summary else None, "\n".join(self.lines)]
+        return [{"role": "user", "content": "\n\n".join(p for p in parts if p)}]
+
+
 # The curator, LFM2.5-350M. Measured on the script's events: asked to write a fact it copies the
 # prompt, and asked for durations it gets "20 minutes" as 20 hours and 20 minutes. So it only
 # labels and names things; memories keep the line's own words, and clock times are computed here.

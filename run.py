@@ -13,7 +13,7 @@ import llm
 import memory
 import planner
 
-ROBOTS = ["full_history", "sliding_window", "task_board"]
+ROBOTS = ["full_history", "sliding_window", "task_board", "rolling_summary"]
 BUDGET = 4_096
 
 
@@ -36,6 +36,8 @@ def build(robot: str, run_dir: Path):
         return memory.SlidingWindow(BUDGET, run_dir / f"{robot}.log.jsonl")
     if robot == "task_board":
         return memory.TaskBoard(BUDGET, latest_board(run_dir / "events.jsonl", robot))
+    if robot == "rolling_summary":
+        return memory.RollingSummary(BUDGET, run_dir / f"{robot}.log.jsonl")
     raise SystemExit(f"unknown robot {robot!r}; robots are {', '.join(ROBOTS)}")
 
 
@@ -58,7 +60,7 @@ def main() -> None:
     run_dir = Path("runs") / args.run
     run_dir.mkdir(parents=True, exist_ok=True)
     events = run_dir / "events.jsonl"
-    for old in [events, *(run_dir / f"{r}.log.jsonl" for r in ROBOTS)]:  # a rerun under the same name
+    for old in [events, *(run_dir / f"{r}.log.jsonl" for r in names)]:  # a rerun under the same name
         old.unlink(missing_ok=True)
     robots = {r: build(r, run_dir) for r in names}
     out = events.open("a")
