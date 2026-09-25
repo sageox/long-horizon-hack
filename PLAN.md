@@ -283,14 +283,16 @@ graded action), `board` (on `board`). `TaskBoard` writes a `board` line
 whenever its board or memories change; `board` is the whole board as a JSON
 string. See `fixtures/events.sample.jsonl`.
 
-**Tinybird:** one datasource, `events`, with the `events.jsonl` schema plus
-`run`, the run's start time, so the endpoints' `max(run)` is the newest run,
-and `seq`, the line's order in its run. `tinybird.py` sends lines and reads the
-board back; `uv run tinybird.py runs/<run>/events.jsonl` streams a finished run
-at playback speed. Without `TB_HOST` it talks to Tinybird Local
-(`uvx --from tinybird tb local start`, then `tb deploy` in `tinybird/`).
-`board_for_robot` returns the latest `board` row for a robot, and the reboot
-reads that endpoint. Local JSONL first, Tinybird second.
+**Tinybird, through RawTree:** the hackathon's Tinybird section hands out
+RawTree keys (`RAWTREE_API_KEY` in `.env`). RawTree is schemaless: one table,
+`dinner_events`, made on the first insert (the database is shared between
+teams, who prefix their tables), holding `events.jsonl` lines plus `run`,
+the run's start time, so `max(run)` is the newest run, and `seq`, the line's
+order in its run. Nothing is deployed; readers send SQL to `/v1/query`, so the
+four queries in `tinybird/pipes/` move into the dashboard as SQL. `rawtree.py`
+sends lines and reads the board back; `uv run rawtree.py
+runs/<run>/events.jsonl` streams a finished run at playback speed. The reboot
+reads the latest `board` row for its robot. Local JSONL first, RawTree second.
 
 **Playback:** one simulated minute is 0.3 seconds, so the day plays in three
 minutes. The viewer and the streamer use the same constant.
