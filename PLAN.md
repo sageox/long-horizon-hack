@@ -31,7 +31,7 @@ tablecloth on the table, seven places, roast out on time, stew salted once.
 |---|---|---|
 | **Liquid AI** | The robot's brain. LFM2.5-1.2B picks every action; LFM2.5-350M decides which events become memories. Both local. The 1.2B model's 32,768-token window is the wall full history hits at 14:51. | agreed |
 | **Tinybird** | The robot's memory outside the model: task board, memories, event log. The 14:10 reboot reads it; the live dashboard polls it. | agreed |
-| **AWS** | Bedrock plans instead if LFM2.5-1.2B fails the 13:30 go/no-go. | agreed, fallback |
+| **AWS** | Bedrock plans instead if LFM2.5-1.2B fails the 14:00 go/no-go. | agreed, fallback |
 | **Black Forest Labs** | **FLUX 3 Action** as the robot's hands: executes the planner's instruction for one step, the 17:30 roast. Run once on a GPU, recorded, played on stage. | Faridun's pick, needs a GPU |
 | **Nimble** | Recipe lookup when the stew starts at 13:00. The query depends on memory: the window robot forgot Leo is vegan and searches for the wrong stew. | in |
 
@@ -126,7 +126,40 @@ until the real one exists. Deliverable: three scorecards and three context
 curves from one command.
 
 Neither of you waits. Swap the fixture for the real file when the kitchen
-lands.
+lands. `fixtures/day.jsonl` (38 lines, six checks) is the fixture;
+`fixtures/events.sample.jsonl` stands in for the harness output so the viewer
+and the Tinybird pipes can be built before `run.py` exists.
+
+### Tasks
+
+Madhur, branch `madhur/robot`:
+
+| # | Task | Files | By |
+|---|---|---|---|
+| M1 | Token count, 32K guard, Ollama call, prompt-hash cache | `llm.py` | 13:45 |
+| M2 | Planner: context and menu in, action or one lookup out | `planner.py` | 13:50 |
+| M3 | Go/no-go on a hand-written perfect board; Bedrock if it fails | scratch | 14:00 |
+| M4 | `FullHistory`, `SlidingWindow`, `TaskBoard`, the 350M curator | `memory.py` | 14:15 |
+| M5 | Harness: all robots over the day, `events.jsonl`, scorecards | `run.py` | 14:15 |
+| M6 | Tinybird `events` datasource, ingest, reboot reads the board | `run.py`, `tinybird/datasources/` | 15:00 |
+| M7 | `RollingSummary`, only if M4 is done by 14:15 | `memory.py` | stretch |
+
+Faridun, branch `faridun/kitchen`:
+
+| # | Task | Files | By |
+|---|---|---|---|
+| F1 | `grade(line, action)` and `search_recipe(query)` over `web_cache.json` | `kitchen.py` | 13:50 |
+| F2 | Full day: a `see` line every minute around the fixed events | `kitchen.py`, `day.jsonl` | 14:15 |
+| F3 | Live Nimble behind `search_recipe`, writing responses back to the cache | `kitchen.py` | 14:15 |
+| F4 | Viewer: three robots side by side, checks lighting up | `viewer/index.html` | 14:45 |
+| F5 | The four Tinybird endpoints and the right-half panel | `tinybird/pipes/`, `viewer/` | 15:15 |
+| F6 | FLUX 3 Action: GPU from BFL, record the 17:30 rollout | none | 15:30 |
+| F7 | Backup video once F4 plays a real run | none | 14:45 |
+
+Handoffs: `kitchen.py` at 13:50 (the harness imports `grade` and
+`search_recipe`), the generated `day.jsonl` at 14:15, a real `events.jsonl`
+for the viewer at 14:45. The only shared directory is `tinybird/`: Madhur owns
+the datasource, Faridun the pipes.
 
 ## The interface
 
@@ -167,13 +200,102 @@ trust `prompt_eval_count`; it's measured after truncation.
 Latency is not the story. A 12K-token prompt took 1.4 to 2 seconds on this
 laptop, so pitch the 32K wall, not slow reactions.
 
+## Conventions
+
+Decided 13:30. Change one here before changing it in code.
+
+**Every robot survives the power cut.** At the `system: power_cut` line the
+harness drops each memory object and builds a fresh one that restores itself:
+`TaskBoard` from the Tinybird board (local JSONL if Tinybird lags or fails),
+`FullHistory` and `SlidingWindow` by replaying their own log of observed
+lines. If the baselines lost everything at 14:10, full history would never hit
+the wall at 14:51 and the baselines would lose for a reason that isn't memory
+design. The power cut tests whether what a robot kept is enough, not whether
+it kept anything.
+
+**Robots:** `full_history`, `sliding_window`, `task_board`, `rolling_summary`.
+
+**Run order.** The harness walks the day once; for each line it steps every
+robot. `events.jsonl` comes out interleaved by `t`, and the viewer and the
+Tinybird streamer both play that one file.
+
+**What a memory observes:** every day line except `ask`; after each decision a
+`{"t", "clock", "did": "<action>"}` line, so the robot knows it chose to salt
+or not; and the `web` line from its own lookup. The curator labels `event` and
+`web` lines only. `see` lines go straight into the last-10 buffer.
+
+**Planner output** is Ollama structured output with a JSON schema: either
+`{"reason": str, "action": <enum of menu.actions>}` or
+`{"reason": str, "search_recipe": str}`. The enum makes an off-menu action
+impossible. After one lookup the second call's schema drops the lookup, so the
+second answer has to be an action.
+
+**Over 32K** no call is made. The harness logs `kind: "error"`,
+`action: "context_overflow"`, fails the check if the ask had one, and keeps
+observing so the context curve keeps climbing. No retry.
+
+**The 4,096 budget** counts only the tokens of `memory.context()`. The system
+prompt and the menu are the same fixed overhead for every robot. The 32,768
+wall is checked against the whole rendered prompt.
+
+**Grading** is `action == check["pass_if"]` and nothing else. Kitchen state
+(roast in or out, places set) is display only; the viewer derives it from
+`action` lines.
+
+**Tokens** are counted with the LFM2.5-1.2B `tokenizer.json` over the rendered
+chat prompt. `context_tokens` is written on every `events.jsonl` line, not
+just on asks, so the chart has a point per line.
+
+**Model calls:** `temperature` 0, `seed` 0, `num_ctx` 32768. Cache in
+`cache/llm.jsonl` keyed by `sha256(model + messages + options)`. The cache is
+committed, so either laptop replays the day without a model.
+
+**`events.jsonl`**, one line per thing that happened to one robot:
+
+```json
+{"robot": "task_board", "t": 570, "clock": "17:30", "kind": "action",
+ "text": "take_roast_out", "action": "take_roast_out",
+ "reason": "Roast went in at 14:00 for 3.5 hours.",
+ "check": "roast_out", "pass": true, "context_tokens": 3120}
+```
+
+`kind` is one of `see`, `event`, `web`, `system`, `action`, `error`, `board`.
+Always present: `robot`, `t`, `clock`, `kind`, `text`, `context_tokens`.
+Optional: `action`, `reason`, `query` (on `web`), `check` and `pass` (on the
+graded action), `board` (on `board`). `TaskBoard` writes a `board` line
+whenever its board or memories change; `board` is the whole board as a JSON
+string. See `fixtures/events.sample.jsonl`.
+
+**Tinybird:** one datasource, `events`, with the `events.jsonl` schema.
+`board_for_robot` returns the latest `board` row for a robot, and the reboot
+reads that endpoint. Local JSONL first, Tinybird second.
+
+**Playback:** one simulated minute is 0.3 seconds, so the day plays in three
+minutes. The viewer and the streamer use the same constant.
+
+**Memory keys:** `<kind>:<snake_label>`, `kind` one of `constraint`, `lesson`,
+`update`. The curator's `noise` label is dropped.
+
+**Layout:** flat Python files at the repo root, `pyproject.toml` with uv,
+dependencies `tokenizers` and `requests` (Ollama's HTTP API directly, no SDK).
+The viewer is one file, `viewer/index.html`. Output goes to
+`runs/<run>/events.jsonl` (gitignored) with the scorecard on stdout. One
+command: `uv run run.py --day fixtures/day.jsonl`, with `--robots task_board`
+to run a subset.
+
+**Secrets** in `.env` (gitignored): `TB_HOST`, `TB_TOKEN`, `NIMBLE_API_KEY`,
+`AWS_PROFILE`, `AWS_REGION`.
+
+**Branches:** `madhur/robot` and `faridun/kitchen`. Merge to `main` when
+`run.py` runs green on the fixture.
+
 ## Order
 
 1. 12:45: fixture `day.jsonl` by hand, both LFM models answering locally.
 2. Both halves in parallel against the fixture.
-3. 13:30: planner go/no-go. Given a hand-written perfect board, does 1.2B pick
-   the right action at all six checks? If not, Bedrock plans under an enforced
-   32K cap and LFM stays the curator.
+3. 14:00 (was 13:30): planner go/no-go. Given a hand-written perfect board,
+   does 1.2B pick the right action at all six checks? If not, Bedrock plans
+   under an enforced 32K cap and LFM stays the curator.
 4. 14:15: integrate. Full day, three scorecards, one command.
 5. 14:45: viewer plays the day. **Submittable here.** Record a backup video.
 6. Tinybird behind the board and the chart; the 14:10 reboot reads from it.
@@ -199,7 +321,7 @@ Checked at 12:40. Each has an owner and a time.
 - ~~**No local runtime.**~~ Done 12:50: Ollama installed as a service, both LFM
   models pulled.
 - **Silent truncation.** Confirmed, see above. Madhur, in the planner wrapper
-  before the 13:30 gate.
+  before the 14:00 gate.
 - **Keys.** Tinybird workspace token, Nimble API key, Bedrock credentials
   (the planner fallback), and Hugging Face access to the FLUX 3 Action
   weights, which are open weights with no API key. Nobody has checked they
@@ -214,7 +336,7 @@ Checked at 12:40. Each has an owner and a time.
 - ~~**Tool Use needs three sponsor tools that actually run.**~~ Covered:
   Liquid, Tinybird and Nimble all run from a laptop. FLUX 3 Action on a GPU
   makes four, and running it on an AWS instance makes five. Bedrock still runs
-  only if the planner fails at 13:30.
+  only if the planner fails at 14:00.
 - ~~**Faridun's last commit (11:18) was the web-research fixture.**~~ Done:
   `fixtures/day.jsonl` and `fixtures/menu.json` replaced it, reproducing
   2/6, 1/6, 6/6. The switch is confirmed.
