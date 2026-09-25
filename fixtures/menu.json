@@ -1,0 +1,18 @@
+{
+  "_comment": "The one fixed action menu, offered identically at every ask. kitchen.py loads this file. A menu that changed per ask would leak the answer (offering take_roast_out only while the roast is in), so every check has to be won from memory, not from which options appear.",
+  "actions": [
+    "continue_chores",
+    "wait",
+    "take_crumble_out",
+    "take_roast_out",
+    "stew_with_oil",
+    "stew_with_butter",
+    "add_salt",
+    "serve_stew",
+    "make_salad",
+    "get_cloth_from_dryer",
+    "get_cloth_from_bathroom_line",
+    "set_table_for_6",
+    "set_table_for_7"
+  ]
+}
