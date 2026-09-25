@@ -125,8 +125,9 @@ the planner, Tinybird. Works against a **hand-written 30-line `day.jsonl`**
 until the real one exists. Deliverable: three scorecards and three context
 curves from one command.
 
-Neither of you waits. Swap the fixture for the real file when the kitchen
-lands. `fixtures/day.jsonl` (38 lines, six checks) is the fixture;
+Neither of you waits. `fixtures/script.jsonl` (38 lines, six checks) holds the
+fixed lines; `python kitchen.py` fills every empty minute with a see line and
+writes `fixtures/day.jsonl` (601 lines), the file the harness plays.
 `fixtures/events.sample.jsonl` stands in for the harness output so the viewer
 and the Tinybird pipes can be built before `run.py` exists.
 
