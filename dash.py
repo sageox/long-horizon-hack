@@ -2,8 +2,10 @@
 
     uv run dash.py [--port 8000]
 
-then open /viewer/stage.html?events=../runs/<run>/events.jsonl&source=rawtree&autoplay=1
-and, in another terminal, `uv run rawtree.py runs/<run>/events.jsonl` to stream the run.
+then open /viewer/three.html?source=rawtree (its Data monitor link opens the dashboard on
+RawTree) or /viewer/stage.html?events=../runs/<run>/events.jsonl&source=rawtree&autoplay=1,
+and, in another terminal, `uv run rawtree.py runs/<run>/events.jsonl` to stream the run. It also
+answers viewer/serve.py's /api/runs and /backend-runs/, which three.html loads runs from.
 
 The browser only ever calls this server. RAWTREE_API_KEY stays here, never in a
 URL on the projected screen, and the key can write to a database other teams
@@ -18,12 +20,11 @@ import argparse
 import json
 import re
 import time
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from http.server import ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-ROOT = Path(__file__).resolve().parent
+from viewer.serve import RunHandler
+
 TABLE = "dinner_events"
 NEWEST = f"(SELECT max(run) FROM {TABLE})"
 # RawTree columns are Dynamic: cast before comparing, grouping or sorting. A
@@ -91,7 +92,7 @@ def answer(view: str, params: dict) -> list[dict]:
     return rows
 
 
-class Handler(SimpleHTTPRequestHandler):
+class Handler(RunHandler):
     def do_GET(self):
         url = urlparse(self.path)
         if not url.path.startswith("/rawtree/"):
@@ -121,8 +122,9 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Serve the viewer and the dashboard's RawTree queries.")
     p.add_argument("--port", type=int, default=8000)
     args = p.parse_args()
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), partial(Handler, directory=str(ROOT)))
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     base = f"http://127.0.0.1:{args.port}"
+    print(f"three.js:  {base}/viewer/three.html?source=rawtree")
     print(f"stage:     {base}/viewer/stage.html?events=../runs/<run>/events.jsonl&source=rawtree&autoplay=1")
     print(f"dashboard: {base}/viewer/tinybird.html?source=rawtree")
     server.serve_forever()

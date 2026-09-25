@@ -657,7 +657,7 @@ for (const destination of ["index.html", "tinybird.html"]) {
   const link = document.querySelector(`nav a[href="${destination}"]`);
   link.onclick = () => {
     const query = activeSource
-      ? new URLSearchParams({ events: activeSource, at: clock(minute) })
+      ? new URLSearchParams({ events: activeSource, at: clock(minute), ...(params.has("source") && { source: params.get("source") }) })
       : "";
     link.href = `${destination}${query ? `?${query}` : ""}`;
   };
