@@ -24,19 +24,28 @@ events become memories. Each
 decision gets a fresh prompt built from the goal, the board, the memories and
 the last few events, inside a fixed budget.
 
-## The claim
+## The result
 
-Same model, same day, same budget: only the robot with persistent state and
-curated memory gets dinner right. We measure it against two controls:
+Same planner, same day, same 4,096-token budget for the window, the summary and
+the board. In our run (`uv run run.py --day fixtures/day.jsonl`, temperature 0,
+every model call replayable from `cache/llm.jsonl`):
 
-| Strategy | Context | Expected at 18:00 |
-|---|---|---|
-| Full history | every event, always | hits 32K at 14:51 and stops planning |
-| Sliding window | last 4K tokens | forgets the roast, the vegan guest, the salt |
-| Task board | board + memories, 4K | all six checks pass |
+| Strategy | Crumble out | Vegan stew | Tablecloth | Seven places | Roast out | Salted once | Score |
+|---|---|---|---|---|---|---|---|
+| Full history | ✗ | ✗ | over 32K | over 32K | over 32K | over 32K | 0/6 |
+| Sliding window | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | 1/6 |
+| Rolling summary | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | 1/6 |
+| Task board | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | **4/6** |
+
+Full history passes the 32,768-token window at 15:17 and can't plan any of the
+last four asks. The task board's prompt never passes 783 tokens. Its two
+misses: at 13:00 it fetched the tablecloth instead of starting the stew, and at
+16:30 it set six places before getting the cloth.
 
 The sliding window is the control that matters: it has the same budget as the
-task board, so the difference is what gets kept, not how much.
+task board, so the difference is what gets kept, not how much. Six checks in
+one run is a small sample, and a robot with no memory can guess a two-way
+choice right, so read this as what happened in our run, not as a rate.
 
 ## Stack
 
@@ -64,8 +73,14 @@ task board, so the difference is what gets kept, not how much.
     ollama pull hf.co/LiquidAI/LFM2.5-8B-A1B-GGUF:Q4_K_M
     ollama pull hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF
     uv run run.py --day fixtures/day.jsonl --run demo   # calls in cache/llm.jsonl replay
+    (cd viewer && npm ci)                                # once: Three.js for the replay
     uv run dash.py                                       # the viewer and dashboard on :8000
     uv run rawtree.py runs/demo/events.jsonl             # stream the run into RawTree
+
+Then open
+`http://127.0.0.1:8000/viewer/three.html?events=/backend-runs/demo/events.jsonl&source=rawtree&autoplay=1`.
+Its Data monitor link opens the dashboard on RawTree. Start the stream a few
+seconds before playback: RawTree shows inserted rows a few seconds late.
 
 Keys go in `.env`: `RAWTREE_API_KEY` for the board and the dashboard,
 `NIMBLE_API_KEY` for live recipe search (without it the lookup answers from
@@ -104,11 +119,6 @@ If the backend is in another worktree, point the viewer at its runs directory:
 ```bash
 npm run dev -- --runs-dir /path/to/backend/worktree/runs
 ```
-
-For parallel `amsterdam` and `dallas` worktrees, use
-`--runs-dir ../../dallas/runs` from `amsterdam/viewer/`.
-No backend files are copied or modified. After the branches are combined,
-the default repository `runs/` directory works without that argument.
 
 Startup also generates `runs/mock/events.jsonl` using `mock_run.py`, available
 only by choosing **Illustrative demo (mock)** or providing its URL. This is an
