@@ -2,9 +2,9 @@
 
 Writes runs/mock/events.jsonl so the viewer and the Tinybird pipes can be
 built before run.py exists. Every line carries "mock": true and the viewer
-badges it. Token counts are kitchen.py's chars/4 estimate; decisions are the
-target scorecard (full history 2/6, sliding window 1/6, task board 6/6) with
-hand-written reasons. Never show this as a run.
+badges it. Token counts are kitchen.py's LFM estimates with lines written as
+text; decisions are the target scorecard (full history 2/6, sliding window
+1/6, task board 6/6) with hand-written reasons. Never show this as a run.
 
     python mock_run.py [--out runs/mock/events.jsonl]
 """
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import kitchen
 
-WALL, OVERHEAD, BUDGET = 32_768, 600, 4_096
+WALL, OVERHEAD, BUDGET = kitchen.WALL, kitchen.PROMPT_TOKENS, kitchen.BUDGET
 ROBOTS = ["full_history", "sliding_window", "task_board"]
 
 REASONS = {
@@ -60,7 +60,7 @@ BOARD_MOVES = {  # t: (task, column, note)
 
 
 def tokens(line: dict) -> int:
-    return kitchen.RENDERS["as JSON"](line)
+    return round(kitchen.line_tokens(line, "text per line"))
 
 
 def text(line: dict) -> str:
@@ -92,7 +92,7 @@ def run(day: list[dict]) -> list[dict]:
     window: deque[int] = deque()  # sliding window: the newest lines that fit
     recent: deque[int] = deque(maxlen=10)  # task board: the last 10 lines
     board = Board()
-    goal = kitchen.est_tokens(day[0]["goal"])
+    goal = tokens(day[0])
 
     def emit(robot, line, kind, text_, ctx, **extra):
         out.append({"robot": robot, "t": line["t"], "clock": line["clock"], "kind": kind,
@@ -103,7 +103,7 @@ def run(day: list[dict]) -> list[dict]:
             return OVERHEAD + full
         if robot == "sliding_window":
             return OVERHEAD + goal + sum(window)
-        return OVERHEAD + goal + kitchen.est_tokens(board.as_json()) + sum(recent)
+        return OVERHEAD + goal + kitchen.est_tokens(board.as_json(), "json") + sum(recent)
 
     def observe(n):
         nonlocal full

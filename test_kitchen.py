@@ -13,6 +13,12 @@ os.environ["KITCHEN_OFFLINE"] = "1"  # never spend a Nimble call in a test
 
 import kitchen  # noqa: E402
 
+try:  # Madhur's, with the LFM tokenizer; missing before his branch lands, or outside uv's Python 3.12
+    import llm
+    import planner
+except Exception:
+    llm = planner = None
+
 CHECK_IDS = ["crumble_out", "stew_vegan", "cloth", "seven_places", "roast_out", "salted_once"]
 
 
@@ -122,21 +128,58 @@ def test_filler_never_describes_the_dining_table():
             assert not re.search(r"\btable\b", line["see"], re.I), line["see"]
 
 
-def test_filler_is_about_75_tokens():
+def test_filler_is_about_74_lfm_tokens():
     sizes = [kitchen.est_tokens(line["see"]) for line in filler()]
-    assert 65 <= sum(sizes) / len(sizes) <= 85
-    assert 50 <= min(sizes) and max(sizes) <= 100
+    assert 70 <= sum(sizes) / len(sizes) <= 78
+    assert 55 <= min(sizes) and max(sizes) <= 95
 
 
-def test_wall_lands_between_the_stew_and_the_table():
-    # After 13:00 even with a live 4K recipe page, before the 16:30 checks.
-    for render, clock in kitchen.walls(kitchen.load_day(), page=4_000).items():
-        assert clock and "13:45" <= clock <= "16:15", (render, clock)
+def prompt_at(t, render, page):
+    return kitchen.est_prompt(kitchen.full_history_lines(kitchen.load_day(), t, page), render)
+
+
+def test_full_history_can_answer_the_stew_even_with_a_live_page():
+    # Its second call at 13:00, after its own lookup, must fit under the wall,
+    # or full history fails the stew too and 2/6 becomes 1/6. JSON per line
+    # passes with the least room: about 31,500 of 32,768.
+    live = kitchen.stew_pages()["live-size page"]
+    for render in kitchen.RENDERS:
+        assert prompt_at(300, render, live) <= kitchen.WALL, render
+
+
+def test_full_history_is_over_the_wall_by_the_table():
+    cached = kitchen.stew_pages()["cached page"]
+    for render in kitchen.RENDERS:
+        assert prompt_at(510, render, cached) > kitchen.WALL, render
+
+
+def test_text_per_line_hits_the_wall_near_14_51():
+    # The pitch's number, measured at 14:48 with the LFM tokenizer.
+    wall = kitchen.walls(kitchen.load_day(), kitchen.stew_pages()["cached page"])["text per line"]
+    assert "14:36" <= wall <= "15:06", wall
 
 
 def test_window_still_holds_the_crumble_at_11():
-    # The control: the crumble went in at 10:40, so 20 lines back.
-    assert kitchen.window_lines(kitchen.load_day(), 180) > 25
+    # The control: the crumble went in at 10:40, 20 lines back.
+    for render in kitchen.RENDERS:
+        assert kitchen.window_lines(kitchen.load_day(), 180, render) > 25, render
+
+
+def test_estimates_match_the_lfm_tokenizer():
+    # The real count, whenever Madhur's llm.py and planner.py import (uv run,
+    # Python 3.12, tokenizers). Within 1.5%, about six minutes of the day.
+    if llm is None:
+        print("   skipped: llm.py and planner.py don't import here")
+        return
+    day = kitchen.load_day()
+    for name, page in kitchen.stew_pages().items():
+        for render in kitchen.RENDERS:
+            for t in (180, 300, 510):
+                lines = kitchen.full_history_lines(day, t, page)
+                messages = planner.messages(kitchen.render_messages(lines, render), kitchen.clock(t))
+                real = llm.count_tokens(llm.render(messages))
+                est = kitchen.est_prompt(lines, render)
+                assert abs(est - real) <= 0.015 * real, (name, render, t, est, real)
 
 
 @contextlib.contextmanager
