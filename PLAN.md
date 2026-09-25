@@ -25,8 +25,30 @@ we grade the table.
 Six checks at 18:00: crumble out (the control, all three pass), stew vegan,
 tablecloth on the table, seven places, roast out on time, stew salted once.
 
-Nimble is out; there is no web data in a kitchen. Liquid, Tinybird and FLUX
-are in.
+### Sponsors
+
+| Sponsor | What it does in the demo | Status |
+|---|---|---|
+| **Liquid AI** | The robot's brain. LFM2.5-1.2B picks every action; LFM2.5-350M decides which events become memories. Both local. The 1.2B model's 32,768-token window is the wall full history hits at 14:51. | agreed |
+| **Tinybird** | The robot's memory outside the model: task board, memories, event log. The 14:10 reboot reads it; the live dashboard polls it. | agreed |
+| **AWS** | Bedrock plans instead if LFM2.5-1.2B fails the 13:30 go/no-go. | agreed, fallback |
+| **Black Forest Labs** | **FLUX 3 Action** as the robot's hands: executes the planner's instruction for one step, the 17:30 roast. Replaces the pre-generated FLUX images. | proposed (Faridun), needs a GPU |
+| **Nimble** | Recipe lookup when the stew starts at 13:00. The query depends on memory: the window robot forgot Leo is vegan and searches for the wrong stew. | proposed (Faridun), open |
+
+**Why FLUX 3 Action fits.** It is a 7B robot policy: camera frames, joint state
+and an instruction in, the next 32 to 42 motor commands out, then it re-plans
+from fresh frames. It carries no memory beyond the arm's current state, so it
+handles seconds and our task board handles hours. On stage: "FLUX 3 Action can
+take the roast out of the oven. It can't remember there's a roast in the oven."
+
+**Why Nimble is still open.** The earlier call was "no web data in a kitchen."
+The counter-case: a home robot looking up a recipe is ordinary, and it puts the
+vegan failure on screen as a wrong search rather than a missing string. It is
+also the only sponsor that scores on Autonomy ("acts on the web using real-time
+data"), which otherwise scores near zero. Decide together. Neither changes the
+day's script, the six checks or the scorecard. FLUX 3 Action sits below the
+planner and touches nothing in the contract; Nimble adds one action,
+`search_recipe(query)`, to `fixtures/menu.json`.
 
 ### On stage: the kitchen and Tinybird side by side
 
@@ -142,7 +164,9 @@ laptop, so pitch the 32K wall, not slow reactions.
 5. 14:45: viewer plays the day. **Submittable here.** Record a backup video.
 6. Tinybird behind the board and the chart; the 14:10 reboot reads from it.
    The right half of the screen polls the four endpoints.
-7. FLUX kitchen and 18:00 tables, pre-generated. Freeze at 15:30.
+7. FLUX 3 Action on the 17:30 roast step, if BFL gives us a GPU: the planner's
+   `take_roast_out` becomes the policy's instruction. Pre-generated FLUX images
+   only if there's no GPU. Freeze at 15:30.
 8. Rehearse the three minutes twice. Submit at 16:15.
 
 If behind, cut in this order: FLUX, the live power cut (keep it in the video),
@@ -161,9 +185,16 @@ Checked at 12:40. Each has an owner and a time.
 - **Silent truncation.** Confirmed, see above. Madhur, in the planner wrapper
   before the 13:30 gate.
 - **Keys.** Tinybird workspace token, FLUX API key, Bedrock credentials (the
-  planner fallback). Nobody has checked they work. Madhur, by 13:00.
-- **Faridun's last commit (11:18) was the web-research fixture.** Confirm the
-  switch before either of you writes more code.
+  planner fallback). Nobody has checked they work. Madhur, by 13:00. Add a
+  Nimble key if the recipe lookup goes in.
+- **FLUX 3 Action needs Linux and an NVIDIA GPU.** Its setup doc says so and
+  lists an H200; it won't run on either Mac, and there is no hosted API in the
+  docs. Ask the BFL table whether they host inference or lend GPUs for the
+  Action track. Faridun, now. If not, show the planner emitting the
+  instruction and say plainly that no rollout ran; don't fake one.
+- ~~**Faridun's last commit (11:18) was the web-research fixture.**~~ Done:
+  `fixtures/day.jsonl` and `fixtures/menu.json` replaced it, reproducing
+  2/6, 1/6, 6/6. The switch is confirmed.
 - **Six checks, one run.** A robot with no memory can guess a two-way choice
   right. Temperature 0, show the model's stated reason for each check, and
   run three days with different `see` noise if time allows. Say "in our run",
