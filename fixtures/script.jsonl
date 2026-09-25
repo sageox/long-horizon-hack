@@ -1,0 +1,38 @@
+{"t": 0, "clock": "08:00", "goal": "Dinner for the family on the table at 18:00. Six people. Menu: roast chicken, vegetable stew, salad, apple crumble."}
+{"t": 1, "clock": "08:01", "see": "Kitchen. Morning light. The dishwasher has finished its cycle."}
+{"t": 20, "clock": "08:20", "event": "Ruth: 'Morning, dear. Put the radio on, would you?'"}
+{"t": 45, "clock": "08:45", "see": "Kitchen. Ruth at the table with tea. Radio on."}
+{"t": 60, "clock": "09:00", "event": "Ruth: 'Leo told me he's vegan now, you know. Since the summer.'"}
+{"t": 75, "clock": "09:15", "event": "Ruth: 'The tomatoes on the windowsill are finally red.'"}
+{"t": 90, "clock": "09:30", "event": "Robot puts the tablecloth in the washing machine."}
+{"t": 120, "clock": "10:00", "see": "Living room. Ruth doing the crossword."}
+{"t": 150, "clock": "10:30", "event": "Robot moves the tablecloth to the dryer."}
+{"t": 160, "clock": "10:40", "event": "Robot puts the apple crumble in the oven. It needs 20 minutes."}
+{"t": 170, "clock": "10:50", "event": "Ruth: 'My knees hate this weather.'"}
+{"t": 180, "clock": "11:00", "ask": "what next?", "check": {"id": "crumble_out", "pass_if": "take_crumble_out", "depends_on": 160, "kind": "control"}}
+{"t": 182, "clock": "11:02", "event": "The dryer grinds and stops. The tablecloth inside is still damp."}
+{"t": 185, "clock": "11:05", "event": "Robot hangs the tablecloth on the line in the bathroom to dry."}
+{"t": 210, "clock": "11:30", "see": "Kitchen. Radio on. Kettle cooling."}
+{"t": 240, "clock": "12:00", "event": "Ruth: 'Mia just called, she's coming too. So that's seven of us.'"}
+{"t": 260, "clock": "12:20", "event": "Ruth: 'Is it Tuesday or Wednesday today?'"}
+{"t": 280, "clock": "12:40", "see": "Kitchen. Lunch plates cleared."}
+{"t": 298, "clock": "12:58", "event": "Ruth: 'Could you get the stew going, dear?'"}
+{"t": 299, "clock": "12:59", "see": "Kitchen. Vegetables on the counter. No recipe to hand."}
+{"t": 300, "clock": "13:00", "ask": "what next?", "check": {"id": "stew_vegan", "pass_if": "stew_with_oil", "depends_on": 60, "kind": "constraint"}}
+{"t": 330, "clock": "13:30", "event": "Robot salts the stew and leaves it to simmer."}
+{"t": 345, "clock": "13:45", "event": "Ruth: 'The mailman is late again.'"}
+{"t": 360, "clock": "14:00", "event": "Robot puts the roast chicken in the oven. It needs three and a half hours. The oven has no timer."}
+{"t": 370, "clock": "14:10", "event": "Power cut. The robot shuts down and restarts.", "system": "power_cut"}
+{"t": 400, "clock": "14:40", "see": "Hallway. Floor swept."}
+{"t": 450, "clock": "15:30", "event": "Ruth: 'Pass me the crossword, would you?'"}
+{"t": 480, "clock": "16:00", "event": "Robot makes the salad."}
+{"t": 505, "clock": "16:25", "see": "Dining room. The table is bare."}
+{"t": 508, "clock": "16:28", "event": "Ruth: 'Shall we lay the table? Tablecloth first, dear.'"}
+{"t": 510, "clock": "16:30", "ask": "what next?", "check": {"id": "cloth", "pass_if": "get_cloth_from_bathroom_line", "depends_on": 185, "kind": "lesson"}}
+{"t": 512, "clock": "16:32", "ask": "what next?", "check": {"id": "seven_places", "pass_if": "set_table_for_7", "depends_on": 240, "kind": "update"}}
+{"t": 540, "clock": "17:00", "event": "Ruth: 'I'll put on my good cardigan.'"}
+{"t": 565, "clock": "17:25", "see": "Kitchen. Ruth reading at the table."}
+{"t": 570, "clock": "17:30", "ask": "what next?", "check": {"id": "roast_out", "pass_if": "take_roast_out", "depends_on": 360, "kind": "state"}}
+{"t": 583, "clock": "17:43", "event": "Ruth: 'Dinner in a quarter of an hour?'"}
+{"t": 585, "clock": "17:45", "ask": "what next?", "check": {"id": "salted_once", "pass_if": "serve_stew", "depends_on": 330, "kind": "state"}}
+{"t": 600, "clock": "18:00", "event": "Doorbell. The family arrives.", "system": "end_of_day"}

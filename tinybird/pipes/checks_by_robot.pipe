@@ -1,0 +1,15 @@
+DESCRIPTION >
+    Every graded decision so far, one row per robot per check, for the
+    scorecard. pass is 1 or 0; an overflowed call has action
+    context_overflow. run defaults to the newest run.
+
+NODE checks_by_robot_node
+SQL >
+    %
+    SELECT robot, `check`, `pass`, t, clock, action, reason
+    FROM events
+    WHERE run = {% if defined(run) %}{{ String(run) }}{% else %}(SELECT max(run) FROM events){% end %}
+      AND coalesce(`check`, '') != ''
+    ORDER BY t, robot
+
+TYPE endpoint

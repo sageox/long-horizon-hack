@@ -1,8 +1,16 @@
 {
-  "_comment": "SYNTHETIC stand-ins for Nimble search results, on example.com, so the robot can be built and replayed without a Nimble key. kitchen.py lowercases the robot's free-text query and returns the first entry whose match_any appears in it; anything else gets the default page. For the real run, call Nimble and write each response back here keyed by query, so a replay returns the same page for the same query.",
+  "_comment": "search_recipe holds SYNTHETIC stand-ins for Nimble results, on example.com, so the robot can be built and replayed without a Nimble key: kitchen.py returns the first entry whose match_any phrase appears in the lowercased query, else the default page. recorded holds real Nimble responses, keyed by the lowercased, whitespace-collapsed query; kitchen.py writes one on every live search and always answers a recorded query from here, so a replay gets the same page for the same query.",
   "search_recipe": [
     {
-      "match_any": ["vegan", "plant-based", "plant based", "dairy-free", "dairy free", "no butter", "without butter"],
+      "match_any": [
+        "vegan",
+        "plant-based",
+        "plant based",
+        "dairy-free",
+        "dairy free",
+        "no butter",
+        "without butter"
+      ],
       "url": "https://recipes.example.com/hearty-vegan-vegetable-stew",
       "title": "Hearty Vegan Vegetable Stew (One Pot, Dairy-Free)",
       "body": "Jump to recipe. There is nothing like a big pot of stew on a cold evening, and this one has been our family favourite since my sister went plant-based two winters ago. I first made it for a birthday dinner that turned into a very long night of board games, and I have tweaked it every year since. The secret is patience with the vegetables and a good pinch of smoked paprika. Serves 6. Ingredients: 3 tbsp olive oil, 1 onion, 2 carrots, 2 celery sticks, 3 garlic cloves, 2 potatoes, 1 tin chopped tomatoes, 750 ml vegetable stock, 1 tin chickpeas, 2 tsp smoked paprika, a handful of spinach, salt and pepper to taste. Method: 1. Warm the olive oil in a large pot and soften the onion, carrot and celery for 8 minutes. 2. Add the garlic and paprika and cook for 1 minute. 3. Add the potatoes, tomatoes and stock and simmer for 25 minutes. 4. Stir in the chickpeas and spinach for the last 5 minutes. 5. Season with salt and pepper to taste. Contains no butter, cream or other animal products. 214 comments.",
@@ -15,5 +23,6 @@
       "body": "Jump to recipe. This is the stew my grandmother made every Sunday in a dented enamel pot that I now keep on my own stove. She never measured anything, so it took me three years of phone calls to write this down. Do not skip the cream at the end: it is what makes it taste like her kitchen. Serves 6. Ingredients: 3 tbsp butter, 1 onion, 2 carrots, 2 celery sticks, 2 potatoes, 1 parsnip, 1 tbsp plain flour, 750 ml chicken stock, 100 ml double cream, a few sprigs of thyme, salt and pepper to taste. Method: 1. Melt the butter in a large pot and soften the vegetables for 8 minutes. 2. Stir in the flour, then add the stock gradually. 3. Add the thyme and simmer for 25 minutes. 4. Stir in the cream. 5. Season with salt and pepper to taste. 389 comments.",
       "fat": "butter"
     }
-  ]
+  ],
+  "recorded": {}
 }

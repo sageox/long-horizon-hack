@@ -125,8 +125,9 @@ the planner, Tinybird. Works against a **hand-written 30-line `day.jsonl`**
 until the real one exists. Deliverable: three scorecards and three context
 curves from one command.
 
-Neither of you waits. Swap the fixture for the real file when the kitchen
-lands. `fixtures/day.jsonl` (38 lines, six checks) is the fixture;
+Neither of you waits. `fixtures/script.jsonl` (38 lines, six checks) holds the
+fixed lines; `python kitchen.py` fills every empty minute with a see line and
+writes `fixtures/day.jsonl` (601 lines), the file the harness plays.
 `fixtures/events.sample.jsonl` stands in for the harness output so the viewer
 and the Tinybird pipes can be built before `run.py` exists.
 
@@ -303,8 +304,9 @@ to run a subset.
 7. FLUX 3 Action on the 17:30 roast step, if BFL gives us a GPU: the planner's
    `take_roast_out` becomes the policy's instruction. Run it once on a GPU
    (BFL's, or an AWS GPU instance, which also makes AWS a sponsor we actually
-   use), record the predicted actions and video, and play the recording.
-   Freeze at 15:30.
+   use), record its 32-step joint plan and show it beside the camera frames
+   it planned from. The released model doesn't decode its video tokens, so
+   there is no clip to play. Runbook: `docs/flux3-action.md`. Freeze at 15:30.
 8. Rehearse the three minutes twice. Submit at 16:15.
 
 If behind, cut in this order: FLUX, the live power cut (keep it in the video),
@@ -332,7 +334,9 @@ Checked at 12:40. Each has an owner and a time.
   Action track, and whether the BFL prize covers all FLUX models or only
   Action. Faridun, now. If BFL can't, an AWS GPU instance (L40S or larger).
   With no GPU at all, show the planner emitting the instruction and say
-  plainly that no rollout ran.
+  plainly that no rollout ran. Checked 14:00: it needs about 32 GB of GPU
+  memory, and its only output is joint targets, `(1, 32, 8)`; video tokens
+  are sampled but not decoded, so "record the video" is off the table.
 - ~~**Tool Use needs three sponsor tools that actually run.**~~ Covered:
   Liquid, Tinybird and Nimble all run from a laptop. FLUX 3 Action on a GPU
   makes four, and running it on an AWS instance makes five. Bedrock still runs
