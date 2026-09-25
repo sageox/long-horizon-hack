@@ -147,15 +147,15 @@ def web_line(t: int, clock: str, page: dict) -> dict:
 
 # The full day ---------------------------------------------------------------
 #
-# Every minute without a fixed line gets a see line of about SEE_TOKENS. That
-# density is what fills full history's 32,768 tokens by mid-afternoon. Filler
+# Every minute without a fixed line gets a see line of about SEE_CHARS, 74 LFM
+# tokens. That density is what fills full history's 32,768 tokens by
+# mid-afternoon. Filler
 # is noise by construction: it never names what a check depends on (the oven,
 # the stew, salt, the cloth, the dryer, the bathroom, how many are coming, who
 # eats what) and never describes the dining table, whose state after 16:30
 # depends on the robot's own choice. test_kitchen.py enforces the word list.
 
-SEE_TOKENS = 75
-CHARS_PER_TOKEN = 4  # an estimate until llm.py counts with the LFM tokenizer
+SEE_CHARS = 300  # the committed day was generated at this length; changing it changes the day
 
 # Where the robot is from minute t on, agreeing with the script's see lines.
 ROBOT_ROOM = [
@@ -347,9 +347,8 @@ def see_text(t: int, rng: random.Random) -> str:
     if 370 < t <= 380:
         details.insert(0, rng.choice(AFTER_POWER_CUT))
     status = f"Battery {96 - t // 9} percent. {rng.choice(STATUS)}"
-    target = SEE_TOKENS * CHARS_PER_TOKEN
     for d in details:
-        if len(" ".join(parts + [status])) + len(d) // 2 >= target:
+        if len(" ".join(parts + [status])) + len(d) // 2 >= SEE_CHARS:
             break
         parts.append(d)
     return " ".join(parts + [status])
@@ -367,45 +366,108 @@ def build_day(seed: int = 0, script: str | Path = SCRIPT) -> list[dict]:
     return sorted(fixed + filler, key=lambda line: line["t"])
 
 
-def est_tokens(text: str) -> int:
-    return round(len(text) / CHARS_PER_TOKEN)
+# Token sizes ----------------------------------------------------------------
+#
+# Measured at 14:20 with Madhur's llm.count_tokens (the LFM2.5-1.2B tokenizer
+# over the rendered chat prompt) and planner.messages, on this day, so these
+# estimates need no tokenizer. test_kitchen.py checks them against llm.py
+# whenever it can import it.
+
+WALL, BUDGET = 32_768, 4_096
+PROMPT_TOKENS = 196  # planner.messages([], clock): the system prompt, the menu and the ask
+MESSAGE_TOKENS = 5  # the chat template around one message
+CHARS_PER_TOKEN = {"prose": 4.07, "text": 3.97, "json": 3.63}
+
+# How memory.py might write the lines it keeps into the prompt, until it
+# settles one. Text per line lands the wall at the pitch's 14:51.
+RENDERS = ("text per line", "text in one message", "JSON per line")
 
 
-def _text(line: dict) -> str:
-    return next(str(line[k]) for k in ("goal", "event", "see", "web", "ask") if k in line)
+def est_tokens(text: str, kind: str = "prose") -> int:
+    return round(len(text) / CHARS_PER_TOKEN[kind])
 
 
-# Two guesses at how a memory renders a line, until memory.py settles it.
-RENDERS = {
-    "as text": lambda line: est_tokens(f"{line['clock']} {_text(line)}"),
-    "as JSON": lambda line: est_tokens(json.dumps(for_robot(line))),
-}
+def as_text(line: dict) -> str:
+    """A line as '13:00 event: ...'."""
+    kind = next(k for k in ("goal", "event", "see", "web", "did") if k in line)
+    return f"{line['clock']} {kind}: {line[kind]}"
 
 
-def walls(day: list[dict], overhead: int = 600, window: int = 32_768, page: int = 250) -> dict:
-    """The clock at which full history's prompt passes the window, per render.
+def render_messages(lines: list[dict], render: str) -> list[dict]:
+    """The chat messages a memory would hand the planner for these lines."""
+    if render == "JSON per line":
+        return [{"role": "user", "content": json.dumps(for_robot(line))} for line in lines]
+    if render == "text per line":
+        return [{"role": "user", "content": as_text(line)} for line in lines]
+    return [{"role": "user", "content": "\n".join(as_text(line) for line in lines)}] if lines else []
 
-    overhead is the system prompt and menu; page is the recipe at 13:00 (the
-    cached one; a live page is 2 to 4K and moves the wall earlier).
-    """
+
+def line_tokens(line: dict, render: str) -> float:
+    if render == "JSON per line":
+        return MESSAGE_TOKENS + len(json.dumps(for_robot(line))) / CHARS_PER_TOKEN["json"]
+    if render == "text per line":
+        return MESSAGE_TOKENS + len(as_text(line)) / CHARS_PER_TOKEN["text"]
+    return (len(as_text(line)) + 1) / CHARS_PER_TOKEN["text"]  # one message, newline-joined
+
+
+def est_prompt(lines: list[dict], render: str) -> int:
+    """The planner's whole prompt around these lines, in LFM tokens."""
+    once = MESSAGE_TOKENS if render == "text in one message" and lines else 0
+    return round(PROMPT_TOKENS + once + sum(line_tokens(line, render) for line in lines))
+
+
+def full_history_lines(day: list[dict], t: int, page: dict | None = None) -> list[dict]:
+    """What full history has observed by minute t: every line but the asks, a
+    did line after each earlier ask (as if it answered), and at the stew ask
+    its own web line for page."""
+    out = []
+    for line in day:
+        if line["t"] > t:
+            break
+        if "ask" not in line:
+            out.append(line)
+            continue
+        check = line.get("check", {})
+        if page is not None and check.get("id") == "stew_vegan":
+            out.append(web_line(line["t"], line["clock"], page))
+        if line["t"] < t and check:
+            out.append({"t": line["t"], "clock": line["clock"], "did": check["pass_if"]})
+    return out
+
+
+def live_size(page: dict) -> dict:
+    """page with its body repeated to PAGE_CHARS, the size of a live Nimble page."""
+    reps = PAGE_CHARS // (len(page["body"]) + 1) + 1
+    return dict(page, body=((page["body"] + " ") * reps)[:PAGE_CHARS])
+
+
+def stew_pages() -> dict:
+    """The page full history reads at 13:00 (it remembers Leo), cached and at live size."""
+    cached = search_recipe("vegan vegetable stew", live=False)
+    return {"cached page": cached, "live-size page": live_size(cached)}
+
+
+def walls(day: list[dict], page: dict | None = None) -> dict:
+    """Per render, the first minute full history's prompt passes 32,768, or None."""
+    stream = full_history_lines(day, day[-1]["t"], page)
     out = {}
-    for name, size in RENDERS.items():
-        total, out[name] = overhead, None
-        for line in day:
-            total += 12 if "ask" in line else size(line)  # an ask adds a "did" line
-            if line["t"] == 300 and "ask" in line:
-                total += page
-            if total > window:
-                out[name] = line["clock"]
+    for render in RENDERS:
+        total, out[render] = PROMPT_TOKENS + (MESSAGE_TOKENS if render == "text in one message" else 0), None
+        for line in stream:
+            total += line_tokens(line, render)
+            if total > WALL:
+                out[render] = line["clock"]
                 break
     return out
 
 
-def window_lines(day: list[dict], t: int, budget: int = 4_096) -> int:
-    """How many lines before minute t fit in the budget beside the goal, as JSON."""
-    used, held = est_tokens(day[0]["goal"]), 0
-    for line in reversed([line for line in day if line["t"] < t and "ask" not in line]):
-        used += RENDERS["as JSON"](line)
+def window_lines(day: list[dict], t: int, render: str = "text per line", budget: int = BUDGET) -> int:
+    """How many of the newest lines before minute t a 4,096-token window keeps beside the goal."""
+    goal, *rest = full_history_lines(day, t - 1)
+    used = line_tokens(goal, render) + (MESSAGE_TOKENS if render == "text in one message" else 0)
+    held = 0
+    for line in reversed(rest):
+        used += line_tokens(line, render)
         if used > budget:
             break
         held += 1
@@ -414,10 +476,12 @@ def window_lines(day: list[dict], t: int, budget: int = 4_096) -> int:
 
 def summary(day: list[dict]) -> str:
     see = [est_tokens(line["see"]) for line in day if "see" in line]
-    wall = ", ".join(f"{clock} {name}" for name, clock in walls(day).items())
+    pages = stew_pages()
+    cached, live = walls(day, pages["cached page"]), walls(day, pages["live-size page"])
+    wall = "; ".join(f"{render} {cached[render]} ({live[render]} with a live page)" for render in RENDERS)
     return (
-        f"{len(day)} lines, {len(see)} see lines at ~{sum(see) // len(see)} tokens each "
-        f"(chars/{CHARS_PER_TOKEN}). Full history passes 32,768 at {wall}. "
+        f"{len(day)} lines, {len(see)} see lines at ~{sum(see) // len(see)} LFM tokens each. "
+        f"Full history passes 32,768 at: {wall}. "
         f"At 11:00 a 4,096 window holds the last {window_lines(day, 180)} lines."
     )
 
