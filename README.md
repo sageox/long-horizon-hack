@@ -59,3 +59,68 @@ task board, so the difference is what gets kept, not how much.
     cp .env.example .env     # fill in the keys
     make run                 # the day, three strategies, cached as it goes
     make chart               # serve the viewer
+
+## Three.js demo
+
+The interactive kitchen reads the Python runner's `runs/<run>/events.jsonl`
+directly. Start the viewer:
+
+```bash
+cd viewer
+npm ci
+npm run dev
+```
+
+Open [localhost:8000/viewer/three.html](http://localhost:8000/viewer/three.html).
+Requires Node.js/npm, Python 3.12+, and a browser with WebGL2. Three.js is the
+only frontend dependency; it is served locally, with no build step or CDN.
+
+The viewer discovers backend runs and opens the newest non-mock run. Choose
+another run from the selector. **Follow backend** follows new events as
+`run.py` writes them; scrubbing or playing switches to replay while continuing
+to load new rows. In-progress runs cannot be scrubbed beyond their last event.
+The server reads complete lines only, so an event being written is never shown
+partly. This is a read-only connection: the viewer does not start model calls.
+
+Start the Python harness separately in the backend checkout:
+
+```bash
+uv run run.py --day fixtures/day.jsonl --run demo
+```
+
+If the backend is in another worktree, point the viewer at its runs directory:
+
+```bash
+npm run dev -- --runs-dir /path/to/backend/worktree/runs
+```
+
+For parallel `amsterdam` and `dallas` worktrees, use
+`--runs-dir ../../dallas/runs` from `amsterdam/viewer/`.
+No backend files are copied or modified. After the branches are combined,
+the default repository `runs/` directory works without that argument.
+
+Startup also generates `runs/mock/events.jsonl` using `mock_run.py`, available
+only by choosing **Illustrative demo (mock)** or providing its URL. This is an
+**illustrative replay with scripted outcomes**, visibly labeled, not measured
+model results. It is never selected automatically when backend data is absent.
+The 3D room and movement are a reconstruction; decisions, context counts,
+board snapshots, and scores come from the selected log. The scene uses the
+shared dinner script for fixed staging such as putting the roast in the oven.
+
+Select a memory strategy, play or scrub the day, jump to an interruption,
+inspect the robot's memories and activity, or open the six-check scorecard.
+Drag the kitchen to orbit; scroll to zoom. Space plays/pauses, the arrow keys
+skip ten minutes, `1`/`2`/`4` change speed, and `R` restarts. The timeline and
+other controls also work with the keyboard.
+
+Use **Load run**, drop an `events.jsonl`, or point at a backend replay:
+
+```
+/viewer/three.html?events=../runs/<run>/events.jsonl&at=14:00&robot=task_board
+```
+
+`autoplay=1` starts playback; `live=1` follows updates to the specified URL.
+The demo shows only strategies found in the log,
+including `rolling_summary` when present. The original event viewer and
+Tinybird dashboard remain available from the navigation. Run the replay and server tests
+with `npm test` in `viewer/`.

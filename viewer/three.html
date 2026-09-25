@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f8f4" />
+    <meta
+      name="description"
+      content="One robot, three memory strategies, and a whole day to get dinner right. An interactive Three.js replay of Dinner at Six."
+    />
+    <title>Dinner at six · A robot's whole day</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%232a6251'/%3E%3Cpath d='M10 23a10 10 0 0 1 20 0M8 27h24M20 10v3' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="three.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./node_modules/three/build/three.module.js",
+          "three/addons/": "./node_modules/three/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <svg
+      class="icon-defs"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <defs>
+        <symbol id="i-dinner" viewBox="0 0 24 24">
+          <path d="M4 16a8 8 0 0 1 16 0M2 20h20M12 4v3M4 16h16" />
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24">
+          <path d="m9 5 11 7-11 7Z" />
+        </symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24">
+          <path d="M9 5v14M16 5v14" />
+        </symbol>
+        <symbol id="i-restart" viewBox="0 0 24 24">
+          <path d="M3 11a9 9 0 1 1 2 7M3 4v7h7" />
+        </symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24">
+          <path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5" />
+        </symbol>
+        <symbol id="i-memory" viewBox="0 0 24 24">
+          <rect x="5" y="5" width="14" height="14" rx="3" />
+          <rect x="9" y="9" width="6" height="6" rx="1" />
+          <path d="M9 2v3m6-3v3m-6 14v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3" />
+        </symbol>
+        <symbol id="i-cube" viewBox="0 0 24 24">
+          <path d="m12 3 9 5v9l-9 5-9-5V8Zm0 10 9-5m-9 5L3 8m9 5v9M7 5.8l9 5" />
+        </symbol>
+        <symbol id="i-expand" viewBox="0 0 24 24">
+          <path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6" />
+        </symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24">
+          <path d="M5 12h14m-6-6 6 6-6 6" />
+        </symbol>
+        <symbol id="i-close" viewBox="0 0 24 24">
+          <path d="m6 6 12 12M6 18 18 6" />
+        </symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"
+          />
+        </symbol>
+      </defs>
+    </svg>
+    <header class="nav">
+      <a class="brand" href="three.html" aria-label="Dinner at six home"
+        ><span class="brand-mark"
+          ><svg><use href="#i-dinner" /></svg></span
+        >Dinner at six<span class="brand-dot">.</span></a
+      >
+      <nav aria-label="Viewer navigation">
+        <a class="nav-active" href="three.html" aria-current="page">The demo</a
+        ><a href="index.html">Event viewer</a
+        ><a href="tinybird.html"
+          >Data monitor <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+      <div class="nav-actions">
+        <span id="data-badge" class="source-badge">LOADING REPLAY</span
+        ><button id="import" class="button small">
+          <svg><use href="#i-upload" /></svg>Load run</button
+        ><input
+          type="file"
+          id="file"
+          accept=".jsonl,.ndjson,.json,text/plain"
+          hidden
+        />
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="title">
+        <div>
+          <p class="eyebrow"><span></span> THE LONG HORIZON EXPERIMENT</p>
+          <h1 id="title">A whole day. <em>One dinner.</em></h1>
+          <p class="subtitle">
+            Memory strategies. One robot. Ten hours to get it right.
+          </p>
+        </div>
+        <div class="goal">
+          <span class="goal-icon"
+            ><svg><use href="#i-dinner" /></svg
+          ></span>
+          <div>
+            <span class="eyebrow">TODAY'S MISSION</span
+            ><strong>Dinner on the table at 18:00</strong
+            ><span id="guest-count"
+              >Six guests. Four dishes. No new session.</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <section class="run-connection" aria-label="Python backend connection">
+        <div>
+          <strong>Python event log</strong
+          ><span id="backend-status">Connecting…</span>
+        </div>
+        <label
+          >Run
+          <select id="backend-run" aria-label="Backend run">
+            <option value="" disabled selected>Choose a run</option>
+            <option value="../runs/mock/events.jsonl">
+              Illustrative demo (mock)
+            </option>
+          </select></label
+        >
+        <button
+          id="follow-backend"
+          class="button small"
+          aria-pressed="false"
+          hidden
+        >
+          Follow backend
+        </button>
+      </section>
+      <div id="notice" class="notice" role="alert" hidden></div>
+      <div class="workspace">
+        <section class="scene-card" aria-label="Interactive 3D kitchen">
+          <div class="scene-toolbar">
+            <div class="scene-title">
+              <svg><use href="#i-cube" /></svg><strong>Ruth's kitchen</strong
+              ><span class="toolbar-divider"></span
+              ><span id="scene-period">Morning light</span>
+            </div>
+            <button
+              id="reset-camera"
+              class="icon-button"
+              title="Reset camera"
+              aria-label="Reset camera"
+            >
+              <svg><use href="#i-expand" /></svg>
+            </button>
+          </div>
+          <div
+            id="scene"
+            role="img"
+            aria-label="3D kitchen reconstruction. Drag to orbit and scroll to zoom."
+          ></div>
+          <div class="scene-strategy">
+            <span class="live-dot" id="strategy-dot"></span
+            ><span id="scene-strategy">Task board</span
+            ><span class="scene-status" id="scene-status">PAUSED</span>
+          </div>
+          <div id="scene-loading" class="scene-loading">
+            <span class="loader"></span>Setting the table…
+          </div>
+          <div id="power-banner" class="power-banner" hidden>
+            <span>ϟ</span>
+            <div>
+              <strong>The power is out.</strong>
+              <p>The robot restarts. Its saved memory is put to the test.</p>
+            </div>
+          </div>
+          <div class="scene-bottom">
+            <div class="scene-caption">
+              <span class="caption-kicker" id="caption-kicker"
+                >08:00 · A FRESH START</span
+              ><strong id="caption"
+                >Good morning. Dinner is in ten hours.</strong
+              >
+            </div>
+            <span class="orbit-hint">DRAG TO EXPLORE <span>↔</span></span>
+          </div>
+        </section>
+
+        <aside class="mind-card" aria-labelledby="mind-title">
+          <div class="panel-title">
+            <span class="memory-icon"
+              ><svg><use href="#i-memory" /></svg
+            ></span>
+            <h2 id="mind-title">Inside the robot</h2>
+            <span class="small-dot"></span>
+          </div>
+          <div class="tabs" role="tablist" aria-label="Robot details">
+            <button
+              id="memory-tab"
+              role="tab"
+              aria-selected="true"
+              aria-controls="memory-panel"
+              tabindex="0"
+            >
+              Memory</button
+            ><button
+              id="activity-tab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="activity-panel"
+              tabindex="-1"
+            >
+              Activity <span id="activity-count">0</span>
+            </button>
+          </div>
+          <div id="memory-panel" role="tabpanel" aria-labelledby="memory-tab">
+            <div id="memory-content"></div>
+          </div>
+          <div
+            id="activity-panel"
+            role="tabpanel"
+            aria-labelledby="activity-tab"
+            hidden
+          >
+            <ol id="activity-feed" class="activity-feed"></ol>
+          </div>
+          <div class="mind-footer">
+            <span id="memory-mode">PERSISTENT TASK BOARD</span
+            ><span id="memory-footnote">Keeps what matters.</span>
+          </div>
+        </aside>
+      </div>
+
+      <section class="playback" aria-label="Day playback">
+        <div class="playback-controls">
+          <button id="play" class="play-button" aria-label="Play day" disabled>
+            <svg><use href="#i-play" /></svg></button
+          ><button
+            id="restart"
+            class="icon-button"
+            title="Restart day (R)"
+            aria-label="Restart day"
+            disabled
+          >
+            <svg><use href="#i-restart" /></svg>
+          </button>
+          <div class="clock-group">
+            <time id="clock">08:00</time
+            ><span id="day-phase">THE DAY BEGINS</span>
+          </div>
+          <div class="playback-right">
+            <span class="keyboard-hint"><kbd>space</kbd> to play</span
+            ><label class="speed-label"
+              >Speed<select id="speed" aria-label="Playback speed">
+                <option value="1">1×</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option>
+              </select></label
+            >
+          </div>
+        </div>
+        <div class="timeline-wrap">
+          <div id="milestones" class="milestones"></div>
+          <input
+            id="timeline"
+            type="range"
+            min="0"
+            max="600"
+            value="0"
+            step="1"
+            aria-label="Time of day"
+            aria-valuetext="08:00"
+            disabled
+          />
+          <div class="timeline-labels">
+            <span>08:00</span><span>10:00</span><span>12:00</span
+            ><span>14:00</span><span>16:00</span><span>18:00</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="comparison" aria-labelledby="comparison-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="comparison-title">Same day. Different memories.</h2>
+            <p>
+              Select a strategy to follow its robot. Dashed line = 32,768-token
+              limit.
+            </p>
+          </div>
+          <button id="scorecard-button" class="text-button" disabled>
+            View scorecard <svg><use href="#i-arrow" /></svg>
+          </button>
+        </div>
+        <div
+          id="strategies"
+          class="strategy-grid"
+          role="group"
+          aria-label="Memory strategy"
+        ></div>
+      </section>
+      <footer>
+        <span><span class="footer-dot"></span> Built for the long run.</span
+        ><span id="source-label"
+          >Local replay · 3D scene is an illustrative reconstruction</span
+        ><span>LONG HORIZON HACK / 2026</span>
+      </footer>
+    </main>
+
+    <dialog id="scorecard">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">THE DINNER TEST</p>
+          <h2 id="score-title">What made it to the table?</h2>
+        </div>
+        <button
+          id="close-scorecard"
+          class="icon-button"
+          aria-label="Close scorecard"
+        >
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <p id="score-note"></p>
+      <div class="score-table-wrap"><table id="score-table"></table></div>
+      <p class="dialog-note">
+        Checks come from the event log. A dash means that check has not happened
+        yet.
+      </p>
+      <button id="jump-end" class="button primary">
+        Jump to dinner <svg><use href="#i-arrow" /></svg>
+      </button>
+    </dialog>
+    <div id="drop-overlay" class="drop-overlay" hidden>
+      <svg><use href="#i-upload" /></svg
+      ><strong>Drop a day into the kitchen.</strong
+      ><span>Load an events.jsonl replay</span>
+    </div>
+    <noscript
+      ><p class="notice">Enable JavaScript to explore the 3D demo.</p></noscript
+    >
+    <script type="module" src="three.js"></script>
+  </body>
+</html>
