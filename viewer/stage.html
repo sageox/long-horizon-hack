@@ -8,8 +8,8 @@
   Both halves in one window: the kitchen on the left, Tinybird on the right.
   Every parameter goes to both, e.g.
     /viewer/stage.html?events=../runs/<run>/events.jsonl&autoplay=1
-    /viewer/stage.html?events=...&host=https://api.tinybird.co&token=<read token>&autoplay=1
-  With host and token the right half polls Tinybird; without, it plays the same file, labelled LOCAL.
+    /viewer/stage.html?events=...&source=rawtree&autoplay=1   (served by uv run dash.py)
+  With source=rawtree the right half polls RawTree through dash.py; without, it plays the same file, labelled LOCAL.
 -->
 <style>
   :root { --bg: #f6f4ef; }

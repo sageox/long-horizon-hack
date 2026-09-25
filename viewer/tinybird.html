@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Robot memory in Tinybird</title>
 <!--
-  The right half on stage: every panel is one Tinybird endpoint, polled once a second.
+  The right half on stage: every panel is one query on Tinybird's RawTree, polled once a second.
 
-  Tinybird:  /viewer/tinybird.html?host=https://api.tinybird.co&token=<read token>[&run=<run>]
+  RawTree:   uv run dash.py, then /viewer/tinybird.html?source=rawtree[&run=2026-09-25 14:46:42]
+             dash.py holds the key and runs the four fixed queries; the newest run is the default.
   Local:     /viewer/tinybird.html?events=../runs/<run>/events.jsonl[&at=14:00][&autoplay=1]
              computes the same four views from the file at playback speed, labelled LOCAL.
   Keys (local): space play/pause, left/right 10 minutes, r restart.
@@ -104,15 +105,22 @@ if (params.get("theme")) document.documentElement.dataset.theme = params.get("th
 
 // ---- sources: Tinybird endpoints, or the same four views from a local file -------------
 
-function tinybird(host, token, run) {
-  const base = host.replace(/\/$/, "");
+const passed = v => v === true || v === 1 || v === "1" || v === "true";
+
+function rawtree(run) {  // dash.py on this origin: it holds the key and the four queries
   return {
-    label: "Tinybird", cls: "",
-    async get(pipe, extra = {}) {
-      const q = new URLSearchParams({ token, ...(run ? { run } : {}), ...extra });
-      const r = await fetch(`${base}/v0/pipes/${pipe}.json?${q}`);
-      if (!r.ok) throw new Error(`${pipe}: HTTP ${r.status} ${(await r.text()).slice(0, 120)}`);
-      return (await r.json()).data;
+    label: "Tinybird · RawTree", cls: "", live: true,
+    async get(view, extra = {}) {
+      const q = new URLSearchParams({ ...(run ? { run } : {}), ...extra });
+      const r = await fetch(`/rawtree/${view}?${q}`);
+      const body = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+      if (!r.ok) throw new Error(`${view}: ${body.error || r.status}`);
+      return body.data;
+    },
+    async describe() {  // which run is on screen, and whether it is the mock
+      const runs = await this.get("runs");
+      const shown = run ? runs.find(x => x.run === run) : runs[0];
+      return shown ? { name: shown.run, mock: passed(shown.mock) } : null;
     },
   };
 }
@@ -135,7 +143,7 @@ function local(rows, mock) {
       for (const r of landed()) m.set(`${r.robot}|${r.t}`, { robot: r.robot, t: r.t, context_tokens: r.context_tokens });
       return [...m.values()];
     },
-    checks_by_robot: () => landed().filter(r => r.check).map(r => ({ ...r, pass: r.pass ? 1 : 0 })),
+    checks_by_robot: () => landed().filter(r => r.check).map(r => ({ ...r, pass: passed(r.pass) ? 1 : 0 })),
     board_for_robot: () => landed().filter(r => r.robot === "task_board" && r.kind === "board").slice(-1),
     latest_events: () => landed().filter(r => r.kind !== "see").slice(-20).reverse(),
   };
@@ -178,10 +186,10 @@ function scorecard(rows) {
   const cell = (robot, id) => {
     const r = rows.filter(x => x.robot === robot && x.check === id).slice(-1)[0];
     if (!r) return "<td>·</td>";
-    return `<td title="${esc(r.clock)} ${esc(r.action)}: ${esc(r.reason || "")}" class="${Number(r.pass) ? "ok" : "no"}">${Number(r.pass) ? "✓" : "✕"}</td>`;
+    return `<td title="${esc(r.clock)} ${esc(r.action)}: ${esc(r.reason || "")}" class="${passed(r.pass) ? "ok" : "no"}">${passed(r.pass) ? "✓" : "✕"}</td>`;
   };
   return `<table><tr><th></th>${CHECKS.map(([, l]) => `<th>${l}</th>`).join("")}<th></th></tr>${robots.map(robot =>
-    `<tr><td>${esc(NAMES[robot] || robot)}</td>${CHECKS.map(([id]) => cell(robot, id)).join("")}<td class="total">${rows.filter(x => x.robot === robot && Number(x.pass)).length}/${CHECKS.length}</td></tr>`).join("")}</table>`;
+    `<tr><td>${esc(NAMES[robot] || robot)}</td>${CHECKS.map(([id]) => cell(robot, id)).join("")}<td class="total">${rows.filter(x => x.robot === robot && passed(x.pass)).length}/${CHECKS.length}</td></tr>`).join("")}</table>`;
 }
 
 function board(rows) {
@@ -203,7 +211,7 @@ function tail(rows) {
     const key = `${r.robot}|${r.t}|${r.kind}|${r.text}`;
     const fresh = !seen.has(key);
     seen.add(key);
-    const what = r.kind === "action" ? `${esc(r.action || r.text)}${r.check ? (Number(r.pass) ? ' <span class="ok">✓</span>' : ' <span class="no">✕</span>') : ""}` : esc(r.text);
+    const what = r.kind === "action" ? `${esc(r.action || r.text)}${r.check ? (passed(r.pass) ? ' <span class="ok">✓</span>' : ' <span class="no">✕</span>') : ""}` : esc(r.text);
     return `<li class="${fresh ? "fresh" : ""}"><time>${esc(r.clock)}</time><span class="who" style="background:var(--${esc(r.robot)}, var(--accent))">${esc(NAMES[r.robot] || r.robot)}</span><span class="what ${esc(r.kind)}">${what}</span></li>`;
   }).join("");
   return html || '<li class="note">No rows yet.</li>';
@@ -232,14 +240,23 @@ async function poll(source) {
     }
   }));
   if (source.now) $("#clock").textContent = hhmm(source.now());
-  if (ok === PANELS.length) $("#status").textContent = `${source.label === "Tinybird" ? "polled once a second" : "playing the file at 0.3 s a minute"} · ${new Date().toLocaleTimeString()}`;
+  if (source.describe) {
+    try {
+      const run = await source.describe();
+      $("#mode").textContent = run && run.mock ? `${source.label} · MOCK DATA` : source.label;
+      $("#mode").className = `mode ${run && run.mock ? "mock" : ""}`;
+      if (ok === PANELS.length) $("#status").textContent = run ? `run ${run.name} · polled once a second · ${new Date().toLocaleTimeString()}` : "no runs in RawTree yet";
+    } catch (e) { $("#status").textContent = e.message; }
+  } else if (ok === PANELS.length) {
+    $("#status").textContent = `playing the file at 0.3 s a minute · ${new Date().toLocaleTimeString()}`;
+  }
   setTimeout(() => poll(source), source.now ? 250 : POLL_MS);
 }
 
 async function main() {
   let source;
-  if (params.get("host") && params.get("token")) {
-    source = tinybird(params.get("host"), params.get("token"), params.get("run"));
+  if (params.get("source") === "rawtree") {
+    source = rawtree(params.get("run"));
   } else {
     const src = params.get("events") || "../fixtures/events.sample.jsonl";
     try {
