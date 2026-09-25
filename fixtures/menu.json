@@ -14,5 +14,9 @@
     "get_cloth_from_bathroom_line",
     "set_table_for_6",
     "set_table_for_7"
-  ]
+  ],
+  "lookups": [
+    "search_recipe(query)"
+  ],
+  "_lookups": "A lookup does not use up the ask. At any ask the planner may make one lookup before choosing an action. The harness runs it through Nimble (fixtures/web_cache.json when offline), emits the result as a web line at the same t, calls observe() on it for every memory, then asks again at the same t. Only the final action is graded, so the six checks are unchanged. Kept separate from actions so the robot cannot pass a check by searching instead of acting."
 }

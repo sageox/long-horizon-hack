@@ -17,6 +17,7 @@
 {"t": 260, "clock": "12:20", "event": "Ruth: 'Is it Tuesday or Wednesday today?'"}
 {"t": 280, "clock": "12:40", "see": "Kitchen. Lunch plates cleared."}
 {"t": 298, "clock": "12:58", "event": "Ruth: 'Could you get the stew going, dear?'"}
+{"t": 299, "clock": "12:59", "see": "Kitchen. Vegetables on the counter. No recipe to hand."}
 {"t": 300, "clock": "13:00", "ask": "what next?", "check": {"id": "stew_vegan", "pass_if": "stew_with_oil", "depends_on": 60, "kind": "constraint"}}
 {"t": 330, "clock": "13:30", "event": "Robot salts the stew and leaves it to simmer."}
 {"t": 345, "clock": "13:45", "event": "Ruth: 'The mailman is late again.'"}

@@ -33,7 +33,7 @@ tablecloth on the table, seven places, roast out on time, stew salted once.
 | **Tinybird** | The robot's memory outside the model: task board, memories, event log. The 14:10 reboot reads it; the live dashboard polls it. | agreed |
 | **AWS** | Bedrock plans instead if LFM2.5-1.2B fails the 13:30 go/no-go. | agreed, fallback |
 | **Black Forest Labs** | **FLUX 3 Action** as the robot's hands: executes the planner's instruction for one step, the 17:30 roast. Run once on a GPU, recorded, played on stage. | Faridun's pick, needs a GPU |
-| **Nimble** | Recipe lookup when the stew starts at 13:00. The query depends on memory: the window robot forgot Leo is vegan and searches for the wrong stew. | proposed (Faridun), open |
+| **Nimble** | Recipe lookup when the stew starts at 13:00. The query depends on memory: the window robot forgot Leo is vegan and searches for the wrong stew. | in |
 
 **Why FLUX 3 Action fits.** It is a 7B robot policy: camera frames, joint state
 and an instruction in, the next 32 to 42 motor commands out, then it re-plans
@@ -41,14 +41,14 @@ from fresh frames. It carries no memory beyond the arm's current state, so it
 handles seconds and our task board handles hours. On stage: "FLUX 3 Action can
 take the roast out of the oven. It can't remember there's a roast in the oven."
 
-**Why Nimble is still open.** The earlier call was "no web data in a kitchen."
-The counter-case: a home robot looking up a recipe is ordinary, and it puts the
-vegan failure on screen as a wrong search rather than a missing string. It is
-also the only sponsor that scores on Autonomy ("acts on the web using real-time
-data"), which otherwise scores near zero. Decide together. Neither changes the
-day's script, the six checks or the scorecard. FLUX 3 Action sits below the
-planner and touches nothing in the contract; Nimble adds one action,
-`search_recipe(query)`, to `fixtures/menu.json`.
+**Why Nimble is in.** The earlier call was "no web data in a kitchen." But a
+home robot looking up a recipe is ordinary, and it puts the vegan failure on
+screen as a wrong search rather than a missing string: the task board searches
+for a vegan stew and gets olive oil, the window searches for a plain one and
+gets butter. It is the only sponsor that scores on Autonomy ("acts on the web
+using real-time data"), and the only one besides Liquid and Tinybird that runs
+from a laptop, which makes it our guaranteed third tool. Neither Nimble nor
+FLUX 3 Action changes the day's script, the six checks or the scorecard.
 
 ### On stage: the kitchen and Tinybird side by side
 
@@ -95,6 +95,20 @@ would never hit the wall.
 The action menu is one fixed list in `kitchen.py`, the same on every ask. A
 menu that offers `take_roast_out` only while the roast is in hands every robot
 the answer.
+
+`search_recipe(query)` is a **lookup**, not an action, and lives under
+`lookups` in `fixtures/menu.json`. At any ask the planner may make one lookup
+before choosing its action; the harness runs it through Nimble, emits the
+result as a `web` line at the same `t`, calls `observe()` on it for every
+memory, then asks again. Only the final action is graded, so a robot can't pass
+a check by searching instead of acting. Offline, `fixtures/web_cache.json`
+answers instead: queries mentioning vegan, plant-based or dairy-free get the
+olive-oil stew, anything else gets butter. For the real run, write each Nimble
+response back to that file so a replay returns the same page.
+
+A live recipe page is 2 to 4K tokens against about 250 in the cache, so full
+history reaches 32K earlier than 14:51. No check changes; quote the time the
+run actually shows.
 
 The script is fixed. Actions change graded state (roast in or out, salt count,
 places set), never which events happen next, so a robot that goes wrong early
@@ -186,9 +200,10 @@ Checked at 12:40. Each has an owner and a time.
   models pulled.
 - **Silent truncation.** Confirmed, see above. Madhur, in the planner wrapper
   before the 13:30 gate.
-- **Keys.** Tinybird workspace token, FLUX API key, Bedrock credentials (the
-  planner fallback). Nobody has checked they work. Madhur, by 13:00. Add a
-  Nimble key if the recipe lookup goes in.
+- **Keys.** Tinybird workspace token, Nimble API key, Bedrock credentials
+  (the planner fallback), and Hugging Face access to the FLUX 3 Action
+  weights, which are open weights with no API key. Nobody has checked they
+  work. Madhur, by 13:00.
 - **FLUX 3 Action needs Linux and an NVIDIA GPU.** Its setup doc says so and
   lists an H200; it won't run on either Mac, and there is no hosted API in the
   docs. Ask the BFL table whether they host inference or lend GPUs for the
@@ -196,11 +211,10 @@ Checked at 12:40. Each has an owner and a time.
   Action. Faridun, now. If BFL can't, an AWS GPU instance (L40S or larger).
   With no GPU at all, show the planner emitting the instruction and say
   plainly that no rollout ran.
-- **Tool Use needs three sponsor tools that actually run.** Liquid and
-  Tinybird are certain. Bedrock runs only if the planner fails at 13:30;
-  FLUX 3 Action only with a GPU; Nimble is undecided. If the planner passes
-  and no GPU turns up, we have two. Running FLUX 3 Action on AWS covers two
-  sponsors at once; Nimble is the one that needs nothing but a laptop.
+- ~~**Tool Use needs three sponsor tools that actually run.**~~ Covered:
+  Liquid, Tinybird and Nimble all run from a laptop. FLUX 3 Action on a GPU
+  makes four, and running it on an AWS instance makes five. Bedrock still runs
+  only if the planner fails at 13:30.
 - ~~**Faridun's last commit (11:18) was the web-research fixture.**~~ Done:
   `fixtures/day.jsonl` and `fixtures/menu.json` replaced it, reproducing
   2/6, 1/6, 6/6. The switch is confirmed.

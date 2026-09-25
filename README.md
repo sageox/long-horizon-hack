@@ -43,7 +43,8 @@ task board, so the difference is what gets kept, not how much.
 |---|---|
 | Liquid AI | LFM2.5-1.2B plans; LFM2.5-350M curates memory; both local |
 | Tinybird | the task board, memories and event log; the chart off the same rows |
-| Black Forest Labs | FLUX images of the kitchen and the 18:00 tables |
+| Black Forest Labs | FLUX 3 Action, the robot's hands: runs the planner's instruction to take the roast out |
+| Nimble | recipe lookup at 13:00; what the robot searches for depends on what it remembered |
 
 ## Layout
 
