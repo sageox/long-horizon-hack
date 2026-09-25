@@ -225,9 +225,12 @@ Tinybird streamer both play that one file.
 or not; and the `web` line from its own lookup. The curator labels `event` and
 `web` lines only. `see` lines go straight into the last-10 buffer.
 
-**Planner output** is Ollama structured output with a JSON schema: either
-`{"reason": str, "action": <enum of menu.actions>}` or
-`{"reason": str, "search_recipe": str}`. The enum makes an off-menu action
+**Planner output** is Ollama structured output with a JSON schema, `anyOf`
+`{"reason": str, "step": <enum of menu.actions>}` or
+`{"reason": str, "search_recipe": str}`. Ollama writes keys in alphabetical
+order whatever order the schema gives, so the action is asked for as `step`,
+which sorts after `reason`: the model reasons before it chooses.
+`planner.decide` returns it as `action`. The enum makes an off-menu action
 impossible. After one lookup the second call's schema drops the lookup, so the
 second answer has to be an action.
 
