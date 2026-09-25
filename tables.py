@@ -64,7 +64,10 @@ def prompt(s: dict) -> str:
     parts = [SCENE]
     parts.append("A white linen tablecloth covers the table." if s["cloth"] == "on the table"
                  else "The table is bare wood with no tablecloth.")
-    parts.append(f"{s['places']} place settings with plates, cutlery and glasses." if s["places"]
+    words = {6: "six", 7: "seven"}
+    n = s["places"]
+    parts.append(f"Exactly {words.get(n, n)} ({n}) place settings, evenly spaced around the table, each with a "
+                 f"white plate, knife, fork and glass, and exactly {words.get(n, n)} chairs." if n
                  else "No places are set: no plates, cutlery or glasses.")
     dishes = []
     if s["roast"] == "out":
@@ -75,7 +78,7 @@ def prompt(s: dict) -> str:
     if s["salad"]:
         dishes.append("a bowl of green salad")
     if s["crumble"] == "out":
-        dishes.append("an apple crumble in a baking dish")
+        dishes.append("an apple crumble with a rough golden oat topping, no pastry, in a baking dish")
     parts.append("On the table: " + ", ".join(dishes) + ".")
     if s["roast"] != "out":
         parts.append("Through the doorway, thin smoke drifts from the closed kitchen oven.")

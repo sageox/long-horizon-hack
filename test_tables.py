@@ -19,7 +19,7 @@ def test_the_task_board_earns_the_full_table():
     assert (s["cloth"], s["places"], s["roast"], s["stew"], s["served"], s["crumble"]) == \
         ("on the table", 7, "out", "olive oil", True, "out")
     text = tables.prompt(s)
-    assert "tablecloth covers" in text and "7 place settings" in text and "roast chicken" in text
+    assert "tablecloth covers" in text and "seven (7) place settings" in text and "roast chicken" in text
     assert "chickpea" in text and "smoke" not in text
 
 
@@ -27,7 +27,7 @@ def test_the_window_forgets_what_scrolled_away():
     s = state("sliding_window")
     assert (s["cloth"], s["places"], s["roast"], s["stew"], s["salted"]) == ("not found", 6, "in the oven", "butter", 2)
     text = tables.prompt(s)
-    assert "no tablecloth" in text and "6 place settings" in text
+    assert "no tablecloth" in text and "six (6) place settings" in text
     assert "roast chicken" not in text and "stew" not in text and "smoke" in text
 
 
