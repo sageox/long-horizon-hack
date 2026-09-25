@@ -8,7 +8,7 @@ import requests
 from tokenizers import Tokenizer
 
 PLANNER = "hf.co/LiquidAI/LFM2.5-8B-A1B-GGUF:Q4_K_M"
-CURATOR = "hf.co/LiquidAI/LFM2.5-350M-GGUF"
+CURATOR = "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF"
 # The planner's own window is 128K. 32,768 is the robot's budget: checked here, and num_ctx for Ollama.
 WINDOW = 32_768
 OPTIONS = {"temperature": 0, "seed": 0, "num_ctx": WINDOW}

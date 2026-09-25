@@ -74,8 +74,8 @@ SUMMARIZE = (
 
 
 class RollingSummary(FullHistory):
-    """The goal, a running summary, and the newest lines. When the budget fills, LFM2.5-1.2B folds
-    the oldest half of the lines into the summary."""
+    """The goal, a running summary, and the newest lines. When the budget fills, llm.CURATOR, the
+    task board's helper model, folds the oldest half of the lines into the summary."""
 
     def __init__(self, budget: int, log: Path):
         self.budget, self.summary = budget, ""
@@ -88,7 +88,7 @@ class RollingSummary(FullHistory):
             old, self.lines = self.lines[:half], self.lines[half:]
             notes = f"Notes so far:\n{self.summary or 'none'}\n\nNew lines:\n" + "\n".join(old)
             system = SUMMARIZE + (self.goal or "")
-            self.summary = llm.chat(llm.PLANNER, [{"role": "system", "content": system},
+            self.summary = llm.chat(llm.CURATOR, [{"role": "system", "content": system},
                                                   {"role": "user", "content": notes}]).strip()
 
     def context(self) -> list[dict]:
@@ -96,14 +96,19 @@ class RollingSummary(FullHistory):
         return [{"role": "user", "content": "\n\n".join(p for p in parts if p)}]
 
 
-# The curator, LFM2.5-350M. Measured on the script's events: asked to write a fact it copies the
-# prompt, and asked for durations it gets "20 minutes" as 20 hours and 20 minutes. So it only
-# labels and names things; memories keep the line's own words, and clock times are computed here.
-# Ollama writes keys in alphabetical order, so key is written before kind.
+# The curator, llm.CURATOR. Measured on the script's events with LFM2.5-350M: asked to write a fact
+# it copies the prompt, and asked for durations it gets "20 minutes" as 20 hours and 20 minutes. So
+# it only labels and names things; memories keep the line's own words, and clock times are computed
+# here. Labelling the script's 13 non-robot events with this prompt, the 350M dropped the dryer and
+# kept 5 small-talk lines; LFM2.5-1.2B kept the vegan, dryer and seven-guest lines and 3 of the 10
+# small-talk lines, so the curator is the 1.2B. Ollama writes keys in alphabetical order, so key is
+# written before kind.
 LABEL = (
-    "You label what a home robot hears, for its memory. constraint: a rule about what someone can "
-    "eat or have. lesson: something broke or had to be done another way. update: the plan changed, "
-    "like more or fewer people. noise: small talk, nothing to remember."
+    "You label what a home robot hears while it cooks dinner for guests today, for its memory. "
+    "constraint: a rule about what someone can eat or have. lesson: something broke or had to be "
+    "done another way. update: the plan changed, like more or fewer people. noise: everything else: "
+    "small talk, questions, requests, how someone feels, and anything that does not change how "
+    "dinner is cooked, served or laid."
 )
 LABEL_SHOTS = [
     ("Sam: 'Remember, I can't eat nuts.'", {"key": "sam_no_nuts", "kind": "constraint"}),
@@ -111,6 +116,9 @@ LABEL_SHOTS = [
     ("The kettle sparks and goes dead. The water is still cold.", {"key": "kettle_broken", "kind": "lesson"}),
     ("Ana: 'Tom can't come after all, so it's four of us.'", {"key": "guests=4", "kind": "update"}),
     ("Ana: 'Where did I leave my glasses?'", {"key": "glasses", "kind": "noise"}),
+    ("Ana: 'What day is the bin collected again?'", {"key": "bin_day", "kind": "noise"}),
+    ("Ana: 'Could you pass me my book, dear?'", {"key": "book", "kind": "noise"}),
+    ("Ana: 'My back is stiff today.'", {"key": "back", "kind": "noise"}),
 ]
 LABEL_SCHEMA = {
     "type": "object",
@@ -232,7 +240,7 @@ class TaskBoard:
             self._did(line)
         elif line.get("event", "").startswith("Robot "):
             self._step(line)
-        elif "event" in line or "web" in line:
+        elif ("event" in line or "web" in line) and "system" not in line:  # the harness acts on system lines
             self._remember(line)
 
     def _finish(self, item: str) -> str:

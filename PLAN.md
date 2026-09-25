@@ -29,7 +29,7 @@ tablecloth on the table, seven places, roast out on time, stew salted once.
 
 | Sponsor | What it does in the demo | Status |
 |---|---|---|
-| **Liquid AI** | The robot's brain. LFM2.5-8B-A1B (8B parameters, about 1B active per token) picks every action; LFM2.5-350M decides which events become memories. Both local. The robot's 32,768-token budget is the wall full history hits at 14:51. | agreed |
+| **Liquid AI** | The robot's brain. LFM2.5-8B-A1B (8B parameters, about 1B active per token) picks every action; LFM2.5-1.2B decides which events become memories and writes the rolling summary. Both local. The robot's 32,768-token budget is the wall full history hits at 14:51. | agreed |
 | **Tinybird** | The robot's memory outside the model: task board, memories, event log. The 14:10 reboot reads it; the live dashboard polls it. | agreed |
 | **AWS** | Was the planner fallback (Bedrock). Dropped at the go/no-go: the planner stays on Liquid. | dropped |
 | **Black Forest Labs** | **FLUX.2** draws each robot's dinner table at 18:00 from its own actions in the run (`tables.py`), shown on the viewer's scorecard. FLUX 3 Action on the 17:30 roast only if a GPU turns up; it has no hosted API. | in, API key 14:35 |
@@ -183,10 +183,14 @@ Three implementations, each given the same planner (a fourth if there's time):
   a running summary. This is what production agents do, and judges will ask
   "why not just summarize?" Whatever it scores, it's the honest comparison.
 
-Curator: LFM2.5-350M labels each event constraint / lesson / update / noise.
+Curator: LFM2.5-1.2B labels each event constraint / lesson / update / noise.
+It replaced the 350M at 15:00: on the script's 13 non-robot events the 350M
+dropped the dryer and kept 5 lines of small talk; the 1.2B keeps the vegan,
+dryer and seven-guest lines and 3 of the 10 small-talk lines. It also writes
+`RollingSummary`'s summaries, so both memory strategies get the same helper.
 Planner: LFM2.5-8B-A1B picks one action from the menu. Both run locally through
 Ollama 0.34.4. Weights: `LiquidAI/LFM2.5-8B-A1B-GGUF` (Q4_K_M, 5.2 GB) and
-`LiquidAI/LFM2.5-350M-GGUF`. The 8B writes hidden reasoning before it answers,
+`LiquidAI/LFM2.5-1.2B-Instruct-GGUF`. The 8B writes hidden reasoning before it answers,
 so a decision takes about 10 seconds; the day has six asks per robot.
 
 Ollama truncates an overlong prompt without an error. Measured at 12:50: with
@@ -295,8 +299,11 @@ dashboard's four queries live in `dash.py`, which serves the viewer and holds
 the key, so the browser never sees it: `uv run dash.py`, then
 `/viewer/stage.html?events=../runs/<run>/events.jsonl&source=rawtree`. `rawtree.py`
 sends lines and reads the board back; `uv run rawtree.py
-runs/<run>/events.jsonl` streams a finished run at playback speed. The reboot
-reads the latest `board` row for its robot. Local JSONL first, RawTree second.
+runs/<run>/events.jsonl` streams a finished run at playback speed. `run.py`
+sends each `board` row to RawTree as it writes it, when `.env` has the key, and
+the reboot reads the latest one back. A write takes a moment to show up: the
+reboot waits up to 10 s for the last board it sent, then restores from the
+local log and says so. Local JSONL first, RawTree second.
 
 **Playback:** one simulated minute is 0.3 seconds, so the day plays in three
 minutes. The viewer and the streamer use the same constant.

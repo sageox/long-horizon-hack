@@ -21,7 +21,8 @@ from kitchen import _secret
 
 API = "https://api.rawtree.com/v1"
 TABLE = "dinner_events"  # the hackathon's database is shared between teams, who prefix their tables
-HEADERS = {"Authorization": f"Bearer {_secret('RAWTREE_API_KEY')}"}
+KEY = _secret("RAWTREE_API_KEY")
+HEADERS = {"Authorization": f"Bearer {KEY}"}
 MINUTE = 0.3  # seconds per simulated minute, as in the viewer
 
 

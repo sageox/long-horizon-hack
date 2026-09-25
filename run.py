@@ -11,37 +11,57 @@ scorecard is printed.
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
+
+import requests
 
 import kitchen
 import llm
 import memory
 import planner
+import rawtree
 
 ROBOTS = ["full_history", "sliding_window", "task_board", "rolling_summary"]
 BUDGET = 4_096
 
 
-def latest_board(events: Path, robot: str) -> dict | None:
-    """The robot's newest board line: what a reboot reads. M6 points this at Tinybird."""
-    board = None
+def latest_board(events: Path, robot: str, remote_run: str | None) -> dict | None:
+    """The robot's newest board line: what a reboot reads. From RawTree when it is on, compared
+    with this run's events.jsonl, which is also the fallback."""
+    local = None
     if events.exists():
         for raw in events.read_text().splitlines():
             row = json.loads(raw)
             if row["robot"] == robot and row["kind"] == "board":
-                board = json.loads(row["board"])
-    return board
+                local = json.loads(row["board"])
+    if not remote_run:
+        return local
+    # A write takes a moment to show up in RawTree: measured, a board sent just before the 14:10
+    # power cut wasn't there when it was read. Wait for the last board this run sent.
+    for _ in range(10):
+        try:
+            remote = rawtree.board(remote_run, robot)
+        except (requests.RequestException, RuntimeError) as e:
+            print(f"{robot}: RawTree board read failed, restoring from the local log: {e}", file=sys.stderr)
+            return local
+        if remote == local:
+            return remote
+        time.sleep(1)
+    print(f"{robot}: RawTree's board still differs from the local log's after 10 s; restoring from the "
+          f"local log\n  RawTree: {json.dumps(remote)}\n  local:   {json.dumps(local)}", file=sys.stderr)
+    return local
 
 
-def build(robot: str, run_dir: Path):
+def build(robot: str, run_dir: Path, remote_run: str | None):
     """A fresh memory that restores itself from whatever this run has already written."""
     if robot == "full_history":
         return memory.FullHistory(run_dir / f"{robot}.log.jsonl")
     if robot == "sliding_window":
         return memory.SlidingWindow(BUDGET, run_dir / f"{robot}.log.jsonl")
     if robot == "task_board":
-        return memory.TaskBoard(BUDGET, latest_board(run_dir / "events.jsonl", robot))
+        return memory.TaskBoard(BUDGET, latest_board(run_dir / "events.jsonl", robot, remote_run))
     if robot == "rolling_summary":
         return memory.RollingSummary(BUDGET, run_dir / f"{robot}.log.jsonl")
     raise SystemExit(f"unknown robot {robot!r}; robots are {', '.join(ROBOTS)}")
@@ -69,11 +89,14 @@ def main() -> None:
     events = run_dir / "events.jsonl"
     for old in [events, *(run_dir / f"{r}.log.jsonl" for r in names)]:  # a rerun under the same name
         old.unlink(missing_ok=True)
-    robots = {r: build(r, run_dir) for r in names}
+    remote_run = rawtree.new_run() if rawtree.KEY else None  # RawTree is on when .env has its key
+    robots = {r: build(r, run_dir, remote_run) for r in names}
     out = events.open("a")
     asks = (run_dir / "asks.jsonl").open("w")
+    written = 0
 
-    def emit(robot: str, line: dict, kind: str, text: str, **extra) -> None:
+    def emit(robot: str, line: dict, kind: str, text: str, **extra) -> dict:
+        nonlocal written
         context = planner.messages(robots[robot].context(), line["clock"])
         row = {"robot": robot, "t": line["t"], "clock": line["clock"], "kind": kind, "text": text, **extra,
                "context_tokens": llm.count_tokens(llm.render(context))}
@@ -81,6 +104,8 @@ def main() -> None:
             row["mock"] = True  # the viewer badges it: not a run
         out.write(json.dumps(row, ensure_ascii=False) + "\n")
         out.flush()  # the power cut's restore reads this file
+        written += 1
+        return row
 
     def observe(robot: str, line: dict, kind: str | None, text: str = "", **extra) -> None:
         mem = robots[robot]
@@ -88,8 +113,13 @@ def main() -> None:
         if kind:
             emit(robot, line, kind, text, **extra)
         if getattr(mem, "changes", None):
-            emit(robot, line, "board", "; ".join(mem.changes), board=json.dumps(mem.board(), ensure_ascii=False))
+            row = emit(robot, line, "board", "; ".join(mem.changes), board=json.dumps(mem.board(), ensure_ascii=False))
             mem.changes.clear()
+            if remote_run:  # before the planner runs again, so a reboot loses nothing
+                try:
+                    rawtree.send(remote_run, written - 1, [row])
+                except requests.RequestException as e:
+                    print(f"{robot}: RawTree send failed, the local log has the board: {e}", file=sys.stderr)
 
     def ask(robot: str, line: dict) -> None:
         mem, clock = robots[robot], line["clock"]
@@ -126,7 +156,7 @@ def main() -> None:
                 ask(robot, line)
             continue
         if line.get("system") == "power_cut":  # drop every memory; each fresh one restores itself
-            robots = {r: build(r, run_dir) for r in names}
+            robots = {r: build(r, run_dir, remote_run) for r in names}
         text = f"Goal: {line['goal']}" if "goal" in line else next(line[k] for k in ("see", "event") if k in line)
         for robot in names:
             observe(robot, kitchen.for_robot(line), kind_of(line), text)
@@ -136,6 +166,9 @@ def main() -> None:
         scorecard(events, names)
     print(f"\nasks: runs/{args.run}/asks.jsonl\nviewer: python3 -m http.server 8000, then "
           f"http://127.0.0.1:8000/viewer/?events=../runs/{args.run}/events.jsonl")
+    if remote_run:
+        print(f"RawTree: board lines under run {remote_run!r}; for the dashboard, "
+              f"uv run rawtree.py runs/{args.run}/events.jsonl")
 
 
 def scorecard(events: Path, names: list[str]) -> None:
