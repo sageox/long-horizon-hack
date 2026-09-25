@@ -288,8 +288,10 @@ RawTree keys (`RAWTREE_API_KEY` in `.env`). RawTree is schemaless: one table,
 `dinner_events`, made on the first insert (the database is shared between
 teams, who prefix their tables), holding `events.jsonl` lines plus `run`,
 the run's start time, so `max(run)` is the newest run, and `seq`, the line's
-order in its run. Nothing is deployed; readers send SQL to `/v1/query`, so the
-four queries in `tinybird/pipes/` move into the dashboard as SQL. `rawtree.py`
+order in its run. Nothing is deployed; readers send SQL to `/v1/query`. The
+dashboard's four queries live in `dash.py`, which serves the viewer and holds
+the key, so the browser never sees it: `uv run dash.py`, then
+`/viewer/stage.html?events=runs/<run>/events.jsonl&source=rawtree`. `rawtree.py`
 sends lines and reads the board back; `uv run rawtree.py
 runs/<run>/events.jsonl` streams a finished run at playback speed. The reboot
 reads the latest `board` row for its robot. Local JSONL first, RawTree second.
