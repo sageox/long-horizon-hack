@@ -225,6 +225,18 @@ Tinybird streamer both play that one file.
 or not; and the `web` line from its own lookup. The curator labels `event` and
 `web` lines only. `see` lines go straight into the last-10 buffer.
 
+**The task board** (M4, 14:30). The curator lists To do from the goal line. An
+event where the robot itself acts ("Robot puts the roast chicken in the oven.
+It needs three and a half hours.") goes on the board instead of being
+labelled: the curator names the item and says doing or done, and code parses
+the duration and appends "Take it out at 17:30". A `did` line moves items by a
+table in `memory.py`, one row per menu action. Other `event` and `web` lines
+are labelled, and a memory's text is the line's own words: asked to write a
+fact, the 350M copies its prompt. The kind is only a prefix and memories are
+replaced by name, so a wrong kind still keeps the memory; a line labelled
+noise is dropped. The `board` JSON has `goal`, `todo`, `doing`, `done` and
+`memories`. Recent is not in it, so after the power cut it starts empty.
+
 **Planner output** is Ollama structured output with a JSON schema, `anyOf`
 `{"reason": str, "step": <enum of menu.actions>}` or
 `{"reason": str, "search_recipe": str}`. Ollama writes keys in alphabetical
