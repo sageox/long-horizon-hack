@@ -1,0 +1,16 @@
+{
+  "_comment": "SYNTHETIC. Fictional products and example.com URLs so nothing here can be mistaken for real research. Swap for the real question once collect is producing live sessions.",
+  "question": "Which of these vector databases support on-disk quantization, and which version added it?",
+  "expect": {
+    "vectra": "2.4",
+    "milvex": "1.9",
+    "weavr": "3.1",
+    "lancedock": "0.8",
+    "pgvect": "0.7",
+    "vespo": "8.2"
+  },
+  "expect_absent": ["chromix"],
+  "_grading": "String match each product against its version in the agent's answer. chromix must NOT appear as supported. No LLM judge.",
+  "_needed_at_steps": [2, 5, 7, 12, 15, 18],
+  "_why": "The six facts are spread across the run with four of them before step 13, so a sliding window of the last k<=6 has dropped them by the time the answer is due. That is what makes the control fail."
+}
