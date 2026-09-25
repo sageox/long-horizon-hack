@@ -1,6 +1,12 @@
 """The harness: every robot over one day, runs/<run>/events.jsonl out, a scorecard per robot on stdout.
 
-    uv run run.py --day fixtures/day.jsonl [--robots task_board,...] [--run name]
+    uv run run.py --day fixtures/day.jsonl [--robots task_board,...] [--run name] [--perfect]
+
+runs/<run>/asks.jsonl holds each robot's context at each ask, before any lookup, with the ask's
+check: planner.messages(context, clock) is the prompt it got. With --perfect every ask is answered
+with its check's pass_if instead of asking the planner, so asks.jsonl holds the contexts a planner
+that got every earlier ask right would see. The wall still holds, rows are marked mock, and no
+scorecard is printed.
 """
 
 import argparse
@@ -55,6 +61,7 @@ def main() -> None:
     p.add_argument("--day", default=str(kitchen.DAY))
     p.add_argument("--robots", default=",".join(ROBOTS))
     p.add_argument("--run", default=time.strftime("%Y%m%d-%H%M%S"))
+    p.add_argument("--perfect", action="store_true", help="answer every ask right; see the module docstring")
     args = p.parse_args()
     names = args.robots.split(",")
     run_dir = Path("runs") / args.run
@@ -64,11 +71,14 @@ def main() -> None:
         old.unlink(missing_ok=True)
     robots = {r: build(r, run_dir) for r in names}
     out = events.open("a")
+    asks = (run_dir / "asks.jsonl").open("w")
 
     def emit(robot: str, line: dict, kind: str, text: str, **extra) -> None:
         context = planner.messages(robots[robot].context(), line["clock"])
         row = {"robot": robot, "t": line["t"], "clock": line["clock"], "kind": kind, "text": text, **extra,
                "context_tokens": llm.count_tokens(llm.render(context))}
+        if args.perfect:
+            row["mock"] = True  # the viewer badges it: not a run
         out.write(json.dumps(row, ensure_ascii=False) + "\n")
         out.flush()  # the power cut's restore reads this file
 
@@ -84,8 +94,17 @@ def main() -> None:
     def ask(robot: str, line: dict) -> None:
         mem, clock = robots[robot], line["clock"]
         graded = {"check": line["check"]["id"]} if "check" in line else {}
+        context = mem.context()
+        tokens = llm.count_tokens(llm.render(planner.messages(context, clock)))
+        asks.write(json.dumps({"robot": robot, "t": line["t"], "clock": clock, "check": line.get("check"),
+                               "context_tokens": tokens, "context": context}, ensure_ascii=False) + "\n")
         try:
-            reply = planner.decide(mem.context(), clock)
+            if args.perfect:
+                if tokens > llm.WINDOW:  # as planner.decide would
+                    raise llm.ContextOverflow(tokens)
+                reply = {"reason": "perfect planner: the check's answer", "action": line["check"]["pass_if"]}
+            else:
+                reply = planner.decide(context, clock)
             if "search_recipe" in reply:
                 page = kitchen.search_recipe(reply["search_recipe"])
                 observe(robot, kitchen.web_line(line["t"], clock, page), "web", page["title"], query=page["query"])
@@ -112,8 +131,10 @@ def main() -> None:
         for robot in names:
             observe(robot, kitchen.for_robot(line), kind_of(line), text)
     out.close()
-    scorecard(events, names)
-    print(f"\nviewer: python3 -m http.server 8000, then "
+    asks.close()
+    if not args.perfect:
+        scorecard(events, names)
+    print(f"\nasks: runs/{args.run}/asks.jsonl\nviewer: python3 -m http.server 8000, then "
           f"http://127.0.0.1:8000/viewer/?events=../runs/{args.run}/events.jsonl")
 
 
