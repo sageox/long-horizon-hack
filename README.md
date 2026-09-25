@@ -19,7 +19,8 @@ dependent steps, with interruptions: a guest turns out to be vegan, the dryer
 breaks, another guest is added, the power cuts out with the roast in the oven.
 
 The robot keeps a task board and a small set of memories outside the model, in
-Tinybird. A small Liquid model decides which events become memories. Each
+RawTree, the hackathon's Tinybird offering. A small Liquid model decides which
+events become memories. Each
 decision gets a fresh prompt built from the goal, the board, the memories and
 the last few events, inside a fixed budget.
 
@@ -41,24 +42,34 @@ task board, so the difference is what gets kept, not how much.
 
 | Tool | Role |
 |---|---|
-| Liquid AI | LFM2.5-1.2B plans; LFM2.5-350M curates memory; both local |
-| Tinybird | the task board, memories and event log; the chart off the same rows |
-| Black Forest Labs | FLUX 3 Action, the robot's hands: runs the planner's instruction to take the roast out |
+| Liquid AI | LFM2.5-8B-A1B plans every action (8B parameters, about 1B active per token); LFM2.5-1.2B curates memories and writes the rolling summary. Both local, through Ollama |
+| Tinybird (RawTree) | the task board and the event log; the 14:10 reboot reads the board back, and the dashboard queries the same rows |
+| Black Forest Labs | FLUX.2 draws each robot's 18:00 table from its own actions (`tables.py`) |
 | Nimble | recipe lookup at 13:00; what the robot searches for depends on what it remembered |
 
 ## Layout
 
-    world/      the kitchen: task graph, events, checks → day.jsonl
-    memory/     the three strategies behind one interface
-    robot/      curator and planner
-    harness/    runs the day per strategy, grades, emits events
-    web/        the viewer
+    kitchen.py   the day, the menu, grading, the recipe lookup
+    llm.py       token counting, the 32K guard, Ollama calls, the prompt-hash cache
+    planner.py   one action, or one recipe lookup, per ask
+    memory.py    full history, sliding window, rolling summary, task board and its curator
+    run.py       every robot over the day: events.jsonl, asks.jsonl, a scorecard each
+    rawtree.py   rows into RawTree, the board back out, a finished run streamed live
+    dash.py      serves the viewer and the dashboard's RawTree queries
+    tables.py    FLUX.2 pictures of each robot's table
+    viewer/      the kitchen viewer, the dashboard, the Three.js replay
 
 ## Running it
 
-    cp .env.example .env     # fill in the keys
-    make run                 # the day, three strategies, cached as it goes
-    make chart               # serve the viewer
+    ollama pull hf.co/LiquidAI/LFM2.5-8B-A1B-GGUF:Q4_K_M
+    ollama pull hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF
+    uv run run.py --day fixtures/day.jsonl --run demo   # calls in cache/llm.jsonl replay
+    uv run dash.py                                       # the viewer and dashboard on :8000
+    uv run rawtree.py runs/demo/events.jsonl             # stream the run into RawTree
+
+Keys go in `.env`: `RAWTREE_API_KEY` for the board and the dashboard,
+`NIMBLE_API_KEY` for live recipe search (without it the lookup answers from
+`fixtures/web_cache.json`), `BFL_API_KEY` for `tables.py`.
 
 ## Three.js demo
 
