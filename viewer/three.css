@@ -25,7 +25,7 @@ body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
-  font-size: 14px;
+  font-size: 19px;
   -webkit-font-smoothing: antialiased;
 }
 button,
@@ -99,7 +99,7 @@ svg {
   display: flex;
   align-items: center;
   white-space: nowrap;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.8px;
   gap: 10px;
@@ -126,7 +126,7 @@ svg {
   height: 100%;
   align-items: center;
   gap: 28px;
-  font-size: 12px;
+  font-size: 17px;
   color: var(--muted);
 }
 .nav nav a {
@@ -159,7 +159,7 @@ svg {
   gap: 20px;
 }
 .source-badge {
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 1px;
   color: #8e723e;
   display: flex;
@@ -181,7 +181,7 @@ svg {
   display: inline-flex;
   gap: 9px;
   align-items: center;
-  font-size: 12px;
+  font-size: 17px;
   font-weight: 550;
 }
 .button:hover {
@@ -214,7 +214,7 @@ main {
 }
 .eyebrow {
   margin: 0;
-  font-size: 9px;
+  font-size: 14px;
   font-weight: 650;
   letter-spacing: 1.8px;
   line-height: 1.6;
@@ -233,7 +233,7 @@ main {
 }
 h1 {
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 43px;
+  font-size: 48px;
   line-height: 1.15;
   font-weight: 400;
   letter-spacing: -1.8px;
@@ -246,7 +246,7 @@ h1 em {
 .subtitle {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 17px;
   letter-spacing: 0.1px;
 }
 .goal {
@@ -275,16 +275,16 @@ h1 em {
   gap: 6px;
 }
 .goal .eyebrow {
-  font-size: 8px;
+  font-size: 13px;
   color: #91988b;
   letter-spacing: 1.5px;
 }
 .goal strong {
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 550;
 }
 .goal div > span:last-child {
-  font-size: 10px;
+  font-size: 15px;
   color: var(--muted);
 }
 .workspace {
@@ -319,7 +319,7 @@ h1 em {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 11px;
+  font-size: 16px;
   color: #7d897b;
 }
 .scene-title svg {
@@ -327,7 +327,7 @@ h1 em {
   width: 15px;
 }
 .scene-title strong {
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 600;
   color: #495848;
 }
@@ -338,7 +338,7 @@ h1 em {
   margin: 0 3px;
 }
 .scene-title > span:last-child {
-  font-size: 10px;
+  font-size: 15px;
 }
 .icon-button {
   background: transparent;
@@ -379,7 +379,7 @@ h1 em {
   padding: 6px 9px;
   border-radius: 5px;
   z-index: 1;
-  font-size: 10px;
+  font-size: 15px;
   color: #54705b;
   border: 1px solid rgba(208, 218, 203, 0.5);
   pointer-events: none;
@@ -392,7 +392,7 @@ h1 em {
   background: var(--selected);
 }
 .scene-status {
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 1px;
   border-left: 1px solid var(--line);
   padding-left: 7px;
@@ -418,26 +418,26 @@ h1 em {
   gap: 6px;
 }
 .caption-kicker {
-  font-size: 8px;
+  font-size: 13px;
   letter-spacing: 1.25px;
   color: #81927c;
   font-weight: 650;
 }
 .scene-caption strong {
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 500;
   line-height: 1.45;
   color: #405d46;
 }
 .orbit-hint {
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 1px;
   white-space: nowrap;
   color: #8e9b87;
   padding-bottom: 3px;
 }
 .orbit-hint span {
-  font-size: 14px;
+  font-size: 19px;
   vertical-align: -1px;
   margin-left: 4px;
 }
@@ -448,7 +448,7 @@ h1 em {
   justify-content: center;
   align-items: center;
   gap: 12px;
-  font-size: 12px;
+  font-size: 17px;
   color: #73836c;
   pointer-events: none;
 }
@@ -483,16 +483,16 @@ h1 em {
   pointer-events: none;
 }
 .power-banner > span {
-  font-size: 35px;
+  font-size: 39px;
   color: #dac191;
 }
 .power-banner strong {
   font-family: Georgia, serif;
-  font-size: 21px;
+  font-size: 24px;
   font-weight: 400;
 }
 .power-banner p {
-  font-size: 11px;
+  font-size: 16px;
   line-height: 1.6;
   color: #c1cdbb;
   margin: 6px 0 0;
@@ -526,7 +526,7 @@ h1 em {
   height: 16px;
 }
 .panel-title h2 {
-  font-size: 12px;
+  font-size: 17px;
   margin: 0;
   font-weight: 550;
 }
@@ -545,7 +545,7 @@ h1 em {
 }
 .tabs button {
   background: transparent;
-  font-size: 11px;
+  font-size: 16px;
   color: #949b91;
   padding: 0 0 12px;
   border-bottom: 2px solid transparent;
@@ -562,7 +562,7 @@ h1 em {
 .tabs button span {
   background: #f2f4ee;
   padding: 1px 4px;
-  font-size: 8px;
+  font-size: 13px;
   border-radius: 3px;
 }
 .mind-card [role="tabpanel"] {
@@ -574,7 +574,7 @@ h1 em {
   scrollbar-color: #d9e1d3 transparent;
 }
 .memory-section-title {
-  font-size: 8px;
+  font-size: 13px;
   letter-spacing: 1.4px;
   color: #939d8a;
   margin: 0 0 10px;
@@ -584,7 +584,7 @@ h1 em {
 }
 .memory-section-title span {
   letter-spacing: 0;
-  font-size: 9px;
+  font-size: 14px;
 }
 .memory-list {
   display: flex;
@@ -604,7 +604,7 @@ h1 em {
   display: flex;
   gap: 5px;
   align-items: center;
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 0.9px;
   color: #81916d;
   margin: 0 0 5px;
@@ -618,7 +618,7 @@ h1 em {
   background: #9bb47f;
 }
 .memory-note p {
-  font-size: 11px;
+  font-size: 16px;
   line-height: 1.5;
   margin: 0;
   color: #59684d;
@@ -627,7 +627,7 @@ h1 em {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 10px;
+  font-size: 15px;
   line-height: 1.5;
   color: #78866b;
   margin: 7px 0;
@@ -656,26 +656,26 @@ h1 em {
 .empty-memory strong {
   font-family: Georgia, serif;
   font-weight: 400;
-  font-size: 21px;
+  font-size: 24px;
   display: block;
   line-height: 1.3;
   color: #6e7f62;
 }
 .empty-memory p {
-  font-size: 11px;
+  font-size: 16px;
   line-height: 1.8;
   color: #8b9682;
   margin: 11px 0;
 }
 .context-retained {
-  font-size: 28px;
+  font-size: 31px;
   letter-spacing: -1px;
   font-family: Georgia, serif;
   margin: 8px 0;
   color: #647c59;
 }
 .context-retained small {
-  font-size: 11px;
+  font-size: 16px;
   font-family: inherit;
   letter-spacing: 0;
   color: #99a28f;
@@ -690,14 +690,14 @@ h1 em {
   gap: 8px;
 }
 .mind-footer > span:first-child {
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 0.85px;
   color: #99a68c;
 }
 .mind-footer > span:last-child {
   font-family: Georgia, serif;
   font-style: italic;
-  font-size: 10px;
+  font-size: 15px;
   color: #879775;
 }
 .activity-feed {
@@ -711,11 +711,11 @@ h1 em {
 .activity-feed li {
   display: flex;
   gap: 10px;
-  font-size: 10px;
+  font-size: 15px;
   line-height: 1.6;
 }
 .activity-feed time {
-  font-size: 9px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   color: #a0aa96;
   margin-top: 1px;
@@ -727,7 +727,7 @@ h1 em {
   overflow-wrap: anywhere;
 }
 .activity-feed .event-kind {
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 0.8px;
   color: #a1ad96;
   display: block;
@@ -774,13 +774,13 @@ h1 em {
   margin-left: 2px;
 }
 .clock-group time {
-  font-size: 24px;
+  font-size: 27px;
   font-weight: 450;
   letter-spacing: -0.8px;
   font-variant-numeric: tabular-nums;
 }
 .clock-group > span {
-  font-size: 8px;
+  font-size: 13px;
   color: #99a38e;
   letter-spacing: 1px;
   padding-top: 3px;
@@ -792,12 +792,12 @@ h1 em {
   align-items: center;
 }
 .keyboard-hint {
-  font-size: 9px;
+  font-size: 14px;
   color: #a4ac9d;
 }
 kbd {
   font-family: inherit;
-  font-size: 8px;
+  font-size: 13px;
   border: 1px solid #e8ece2;
   border-bottom-width: 2px;
   padding: 2px 5px;
@@ -805,7 +805,7 @@ kbd {
   margin-right: 4px;
 }
 .speed-label {
-  font-size: 9px;
+  font-size: 14px;
   color: #949d8b;
   display: flex;
   align-items: center;
@@ -817,7 +817,7 @@ kbd {
   border-radius: 5px;
   padding: 5px;
   color: #5e7053;
-  font-size: 10px;
+  font-size: 15px;
   min-width: 47px;
   cursor: pointer;
 }
@@ -833,7 +833,7 @@ kbd {
 .milestone {
   position: absolute;
   transform: translateX(-50%);
-  font-size: 7px;
+  font-size: 12px;
   color: #8e9c81;
   background: transparent;
   white-space: nowrap;
@@ -868,6 +868,14 @@ kbd {
   transform: translateX(-100%);
 }
 .milestone.end:after {
+  left: auto;
+  right: 0;
+}
+/* The roast check is 30 minutes before the end: centred, its label ran into "Dinner". */
+.milestone:has(+ .milestone.end) {
+  transform: translateX(-100%);
+}
+.milestone:has(+ .milestone.end):after {
   left: auto;
   right: 0;
 }
@@ -908,7 +916,7 @@ kbd {
   display: flex;
   justify-content: space-between;
   margin-top: 12px;
-  font-size: 8px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   color: #a0aa94;
 }
@@ -922,13 +930,13 @@ kbd {
   margin-bottom: 15px;
 }
 .section-heading h2 {
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 550;
   letter-spacing: -0.3px;
   margin: 0;
 }
 .section-heading p {
-  font-size: 10px;
+  font-size: 15px;
   margin: 6px 0 0;
   color: #949d8b;
 }
@@ -936,7 +944,7 @@ kbd {
   display: flex;
   gap: 7px;
   align-items: center;
-  font-size: 10px;
+  font-size: 15px;
   background: transparent;
   color: #718961;
   padding: 8px 0 8px 8px;
@@ -989,17 +997,17 @@ kbd {
   border-radius: 6px;
   display: grid;
   place-items: center;
-  font-size: 14px;
+  font-size: 19px;
   line-height: 1;
 }
 .strategy-name {
-  font-size: 12px;
+  font-size: 17px;
   font-weight: 550;
 }
 .strategy-top .following {
   margin-left: auto;
   color: var(--strategy);
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 1px;
   font-weight: 600;
 }
@@ -1008,7 +1016,7 @@ kbd {
 }
 .strategy-description {
   color: #99a18f;
-  font-size: 9px;
+  font-size: 14px;
   margin: 9px 0 17px;
   line-height: 1.5;
   min-height: 14px;
@@ -1020,25 +1028,25 @@ kbd {
   align-items: center;
 }
 .token-number {
-  font-size: 25px;
+  font-size: 28px;
   line-height: 1;
   letter-spacing: -0.7px;
   font-weight: 450;
   font-variant-numeric: tabular-nums;
 }
 .token-number small {
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 0;
   color: #a4ad9b;
   padding-left: 5px;
 }
 .score-number {
-  font-size: 21px;
+  font-size: 24px;
   color: var(--strategy);
   letter-spacing: -0.5px;
 }
 .score-number small {
-  font-size: 12px;
+  font-size: 17px;
   color: #9ea892;
   letter-spacing: 0;
 }
@@ -1046,7 +1054,7 @@ kbd {
   display: flex;
   justify-content: space-between;
   color: #a2aa97;
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 0.8px;
   margin-top: 7px;
 }
@@ -1081,7 +1089,7 @@ kbd {
   gap: 8px;
 }
 .strategy-health {
-  font-size: 8px;
+  font-size: 13px;
   color: #939f88;
 }
 .check-dots {
@@ -1090,7 +1098,7 @@ kbd {
 }
 .check-dots i {
   font-style: normal;
-  font-size: 7px;
+  font-size: 12px;
   width: 13px;
   height: 13px;
   border-radius: 50%;
@@ -1118,7 +1126,7 @@ footer {
   justify-content: space-between;
   align-items: center;
   padding: 25px 0 20px;
-  font-size: 8px;
+  font-size: 13px;
   color: #9fa995;
   gap: 15px;
 }
@@ -1129,7 +1137,7 @@ footer > span:first-child {
   color: #8f9d85;
 }
 footer > span:last-child {
-  font-size: 7px;
+  font-size: 12px;
   letter-spacing: 1px;
 }
 .footer-dot {
@@ -1144,7 +1152,7 @@ footer > span:last-child {
   color: #876332;
   padding: 14px 18px;
   border-radius: 7px;
-  font-size: 12px;
+  font-size: 17px;
   line-height: 1.6;
   margin-bottom: 18px;
   overflow-wrap: anywhere;
@@ -1170,17 +1178,17 @@ dialog::backdrop {
 }
 .dialog-header .eyebrow {
   color: #7e9970;
-  font-size: 8px;
+  font-size: 13px;
 }
 .dialog-header h2 {
   font-family: Georgia, serif;
-  font-size: 31px;
+  font-size: 35px;
   font-weight: 400;
   letter-spacing: -0.7px;
   margin: 9px 0 0;
 }
 #score-note {
-  font-size: 11px;
+  font-size: 16px;
   color: #8b987f;
   margin: 15px 0 22px;
 }
@@ -1190,14 +1198,14 @@ dialog::backdrop {
 #score-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 10px;
+  font-size: 15px;
   white-space: nowrap;
 }
 #score-table th {
   text-align: left;
   color: #8b987f;
   font-weight: 500;
-  font-size: 9px;
+  font-size: 14px;
 }
 #score-table th,
 #score-table td {
@@ -1218,7 +1226,7 @@ dialog::backdrop {
   font-weight: 650;
 }
 .dialog-note {
-  font-size: 10px;
+  font-size: 15px;
   line-height: 1.7;
   color: #8b987f;
   margin: 18px 0 25px;
@@ -1245,11 +1253,11 @@ dialog::backdrop {
 .drop-overlay strong {
   font-family: Georgia, serif;
   font-weight: 400;
-  font-size: 36px;
+  font-size: 40px;
   letter-spacing: -0.7px;
 }
 .drop-overlay span {
-  font-size: 12px;
+  font-size: 17px;
   color: #8f9e82;
 }
 @media (min-width: 1500px) {
@@ -1258,7 +1266,7 @@ dialog::backdrop {
     height: 480px;
   }
   h1 {
-    font-size: 48px;
+    font-size: 54px;
   }
   .intro {
     padding: 37px 0 34px;
@@ -1294,7 +1302,7 @@ dialog::backdrop {
     display: none;
   }
   h1 {
-    font-size: 36px;
+    font-size: 40px;
   }
   .workspace {
     grid-template-columns: minmax(0, 1fr) 285px;
@@ -1307,11 +1315,11 @@ dialog::backdrop {
     padding: 15px 14px;
   }
   .source-badge {
-    font-size: 8px;
+    font-size: 13px;
     letter-spacing: 0.6px;
   }
   .scene-caption strong {
-    font-size: 12px;
+    font-size: 17px;
   }
   .orbit-hint {
     display: none;
@@ -1363,27 +1371,27 @@ dialog::backdrop {
     gap: 10px;
   }
   .strategy-name {
-    font-size: 11px;
+    font-size: 16px;
   }
   .strategy-symbol {
     display: none;
   }
   .strategy-description {
-    font-size: 8px;
+    font-size: 13px;
     min-height: 24px;
   }
   .strategy-card {
     padding: 13px 12px;
   }
   .strategy-top .following {
-    font-size: 6px;
+    font-size: 11px;
     letter-spacing: 0.6px;
   }
   .token-number {
-    font-size: 22px;
+    font-size: 25px;
   }
   .score-number {
-    font-size: 19px;
+    font-size: 21px;
   }
   .strategy-footer {
     flex-wrap: wrap;
@@ -1408,10 +1416,10 @@ dialog::backdrop {
     display: none;
   }
   .clock-group > span {
-    font-size: 7px;
+    font-size: 12px;
   }
   .milestone {
-    font-size: 6px;
+    font-size: 11px;
   }
   .playback {
     padding: 13px 15px;
@@ -1428,7 +1436,7 @@ dialog::backdrop {
     height: 65px;
   }
   .brand {
-    font-size: 18px;
+    font-size: 20px;
     gap: 7px;
   }
   .brand-mark {
@@ -1447,14 +1455,14 @@ dialog::backdrop {
     gap: 8px;
   }
   .source-badge {
-    font-size: 6px;
+    font-size: 11px;
     letter-spacing: 0.2px;
     max-width: 70px;
     line-height: 1.5;
   }
   .button.small {
     padding: 8px 10px;
-    font-size: 10px;
+    font-size: 15px;
     gap: 6px;
   }
   .button.small svg {
@@ -1467,16 +1475,16 @@ dialog::backdrop {
     padding: 24px 0 22px;
   }
   .intro .eyebrow {
-    font-size: 7px;
+    font-size: 12px;
     letter-spacing: 1.5px;
   }
   h1 {
-    font-size: 32px;
+    font-size: 36px;
     letter-spacing: -1.4px;
     margin: 10px 0;
   }
   .subtitle {
-    font-size: 10px;
+    font-size: 15px;
     line-height: 1.7;
   }
   .workspace {
@@ -1491,7 +1499,7 @@ dialog::backdrop {
     height: 300px;
   }
   .scene-caption strong {
-    font-size: 12px;
+    font-size: 17px;
   }
   .mind-card [role="tabpanel"] {
     padding: 12px 15px;
@@ -1503,10 +1511,10 @@ dialog::backdrop {
     padding: 8px 9px;
   }
   .memory-note p {
-    font-size: 10px;
+    font-size: 15px;
   }
   .memory-note .note-type {
-    font-size: 6px;
+    font-size: 11px;
   }
   .memory-section-title {
     margin-bottom: 7px;
@@ -1536,10 +1544,10 @@ dialog::backdrop {
     margin-left: 1px;
   }
   .clock-group time {
-    font-size: 22px;
+    font-size: 25px;
   }
   .clock-group > span {
-    font-size: 6px;
+    font-size: 11px;
     max-width: 67px;
     line-height: 1.6;
   }
@@ -1547,11 +1555,11 @@ dialog::backdrop {
     gap: 0;
   }
   .speed-label {
-    font-size: 8px;
+    font-size: 13px;
     gap: 5px;
   }
   .speed-label select {
-    font-size: 9px;
+    font-size: 14px;
     padding: 5px;
     min-width: 41px;
   }
@@ -1593,19 +1601,19 @@ dialog::backdrop {
     bottom: -1px;
   }
   .timeline-labels {
-    font-size: 7px;
+    font-size: 12px;
   }
   .comparison {
     margin-top: 24px;
   }
   .section-heading h2 {
-    font-size: 14px;
+    font-size: 19px;
   }
   .section-heading p {
-    font-size: 9px;
+    font-size: 14px;
   }
   .text-button {
-    font-size: 9px;
+    font-size: 14px;
     gap: 5px;
   }
   .strategy-grid {
@@ -1619,7 +1627,7 @@ dialog::backdrop {
     gap: 8px;
   }
   .strategy-name {
-    font-size: 13px;
+    font-size: 18px;
   }
   .strategy-symbol {
     display: grid;
@@ -1627,22 +1635,22 @@ dialog::backdrop {
     height: 22px;
   }
   .strategy-top .following {
-    font-size: 7px;
+    font-size: 12px;
     letter-spacing: 1px;
   }
   .strategy-description {
-    font-size: 10px;
+    font-size: 15px;
     min-height: 0;
     margin: 9px 0 15px;
   }
   .token-number {
-    font-size: 26px;
+    font-size: 29px;
   }
   .score-number {
-    font-size: 23px;
+    font-size: 26px;
   }
   .metric-labels {
-    font-size: 8px;
+    font-size: 13px;
   }
   .sparkline {
     height: 24px;
@@ -1652,7 +1660,7 @@ dialog::backdrop {
     padding-top: 10px;
   }
   .strategy-health {
-    font-size: 9px;
+    font-size: 14px;
   }
   .check-dots i {
     width: 14px;
@@ -1661,7 +1669,7 @@ dialog::backdrop {
   footer {
     flex-wrap: wrap;
     justify-content: space-between;
-    font-size: 7px;
+    font-size: 12px;
     padding: 23px 0 18px;
   }
   footer > span:nth-child(2) {
@@ -1669,22 +1677,22 @@ dialog::backdrop {
     max-width: none;
     flex-basis: 100%;
     text-align: left;
-    font-size: 7px;
+    font-size: 12px;
   }
   footer > span:last-child {
-    font-size: 6px;
+    font-size: 11px;
   }
   .dialog-header h2 {
-    font-size: 24px;
+    font-size: 27px;
   }
   dialog {
     padding: 22px;
   }
   .drop-overlay strong {
-    font-size: 25px;
+    font-size: 28px;
   }
   .notice {
-    font-size: 11px;
+    font-size: 16px;
     padding: 12px;
   }
 }
@@ -1706,7 +1714,7 @@ dialog::backdrop {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 8px;
-  font-size: 11px;
+  font-size: 16px;
 }
 .run-connection > div {
   display: flex;
@@ -1719,7 +1727,7 @@ dialog::backdrop {
 }
 #backend-status {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 15px;
 }
 .run-connection label {
   display: flex;
@@ -1734,7 +1742,7 @@ dialog::backdrop {
   border-radius: 5px;
   color: var(--ink);
   max-width: 240px;
-  font-size: 11px;
+  font-size: 16px;
 }
 #follow-backend[aria-pressed="true"] {
   background: var(--green);
@@ -1771,7 +1779,7 @@ dialog::backdrop {
     max-width: 195px;
   }
   #follow-backend {
-    font-size: 10px;
+    font-size: 15px;
     padding: 8px;
   }
 }
