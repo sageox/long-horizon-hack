@@ -32,7 +32,7 @@ tablecloth on the table, seven places, roast out on time, stew salted once.
 | **Liquid AI** | The robot's brain. LFM2.5-1.2B picks every action; LFM2.5-350M decides which events become memories. Both local. The 1.2B model's 32,768-token window is the wall full history hits at 14:51. | agreed |
 | **Tinybird** | The robot's memory outside the model: task board, memories, event log. The 14:10 reboot reads it; the live dashboard polls it. | agreed |
 | **AWS** | Bedrock plans instead if LFM2.5-1.2B fails the 14:00 go/no-go. | agreed, fallback |
-| **Black Forest Labs** | **FLUX 3 Action** as the robot's hands: executes the planner's instruction for one step, the 17:30 roast. Run once on a GPU, recorded, played on stage. | Faridun's pick, needs a GPU |
+| **Black Forest Labs** | **FLUX.2** draws each robot's dinner table at 18:00 from its own actions in the run (`tables.py`), shown on the viewer's scorecard. FLUX 3 Action on the 17:30 roast only if a GPU turns up; it has no hosted API. | in, API key 14:35 |
 | **Nimble** | Recipe lookup when the stew starts at 13:00. The query depends on memory: the window robot forgot Leo is vegan and searches for the wrong stew. | in |
 
 **Why FLUX 3 Action fits.** It is a 7B robot policy: camera frames, joint state
@@ -302,7 +302,7 @@ command: `uv run run.py --day fixtures/day.jsonl`, with `--robots task_board`
 to run a subset.
 
 **Secrets** in `.env` (gitignored): `TB_HOST`, `TB_TOKEN`, `NIMBLE_API_KEY`,
-`AWS_PROFILE`, `AWS_REGION`.
+`BFL_API_KEY`, `AWS_PROFILE`, `AWS_REGION`.
 
 **Branches:** `madhur/robot` and `faridun/kitchen`. Merge to `main` when
 `run.py` runs green on the fixture.
@@ -355,9 +355,10 @@ Checked at 12:40. Each has an owner and a time.
   memory, and its only output is joint targets, `(1, 32, 8)`; video tokens
   are sampled but not decoded, so "record the video" is off the table.
 - ~~**Tool Use needs three sponsor tools that actually run.**~~ Covered:
-  Liquid, Tinybird and Nimble all run from a laptop. FLUX 3 Action on a GPU
-  makes four, and running it on an AWS instance makes five. Bedrock still runs
-  only if the planner fails at 14:00.
+  Liquid, Tinybird and Nimble all run from a laptop, and since 14:35 so does
+  Black Forest Labs through FLUX.2's hosted API, which makes four. FLUX 3
+  Action on a GPU would be a fifth. Bedrock still runs only if the planner
+  fails at 14:00.
 - ~~**Faridun's last commit (11:18) was the web-research fixture.**~~ Done:
   `fixtures/day.jsonl` and `fixtures/menu.json` replaced it, reproducing
   2/6, 1/6, 6/6. The switch is confirmed.
