@@ -124,7 +124,13 @@
 
   .final { position: fixed; inset: 0; background: var(--dark); display: grid; place-items: center; z-index: 5; }
   .final[hidden], .drop[hidden] { display: none; }
-  .card { background: var(--panel); border-radius: 16px; padding: 22px 26px; min-width: min(560px, 92vw); }
+  .card { background: var(--panel); border-radius: 16px; padding: 22px 26px; min-width: min(560px, 92vw); max-width: min(1100px, 94vw); }
+  .tables { display: grid; grid-template-columns: repeat(var(--robots, 3), minmax(0, 1fr)); gap: 10px; margin: 0 0 8px; }
+  .tables figure { margin: 0; } .tables img { width: 100%; border-radius: 10px; display: block; }
+  .tables figcaption { font-size: 13px; font-weight: 600; margin-top: 4px; }
+  .tables figcaption small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+  .tables figcaption .bad { color: var(--fail); }
+  .credit { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
   .card h2 { margin: 0 0 12px; }
   .card table { width: 100%; border-collapse: collapse; font-size: 15px; }
   .card td, .card th { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: center; }
@@ -181,7 +187,7 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "
 const hhmm = t => `${String(8 + Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t) % 60).padStart(2, "0")}`;
 const fmt = n => Number(n || 0).toLocaleString("en-US");
 
-let byRobot = new Map(), robots = [], sim = 0, playing = false, speed = 1, lastFrame = null, states = {}, drawnMinute = -1;
+let eventsSrc = "", byRobot = new Map(), robots = [], sim = 0, playing = false, speed = 1, lastFrame = null, states = {}, drawnMinute = -1;
 
 const params = new URLSearchParams(location.search);
 if (params.get("theme")) document.documentElement.dataset.theme = params.get("theme");
@@ -208,6 +214,7 @@ function setData(text, src) {
   const rank = r => (ORDER.indexOf(r) + 1) || 99;
   robots = [...byRobot.keys()].sort((a, b) => rank(a) - rank(b));
   $("#mock").hidden = !rows.some(r => r.mock);
+  eventsSrc = src;
   $("#src").textContent = src;
   $("#src").title = src;
   $("#drop").hidden = true;
@@ -381,9 +388,21 @@ function showFinal() {
     }).join("")}<td class="n">${s.score}/${CHECKS.length}</td></tr>`;
   }).join("");
   $("#card").innerHTML = `<h2>18:00. The family arrives.${$("#mock").hidden ? "" : ' <span class="badge mock">MOCK DATA</span>'}</h2>
-    <table><tr><th></th>${CHECKS.map(([, l]) => `<th>${l}</th>`).join("")}<th></th></tr>${rows}</table>`;
+    ${tablesHtml()}<table><tr><th></th>${CHECKS.map(([, l]) => `<th>${l}</th>`).join("")}<th></th></tr>${rows}</table>`;
   $("#final").hidden = false;
   setPlaying(false);
+}
+
+// Each robot's table, if tables.py drew them beside this events.jsonl.
+function tablesHtml() {
+  if (!/events\.jsonl$/.test(eventsSrc)) return "";
+  const base = eventsSrc.replace(/events\.jsonl$/, "tables/");
+  const shown = "this.parentNode.hidden=false;document.querySelector('.credit').hidden=false";
+  return `<div class="tables" style="--robots:${robots.length}">${robots.map(r => `<figure hidden>
+    <img src="${esc(base + r)}.jpg" alt="${esc(NAMES[r] || r)}'s table at 18:00" onload="${shown}">
+    <figcaption>${esc(NAMES[r] || r)} · ${states[r].score}/${CHECKS.length}<small>${kitchen(states[r], DAY_END)
+      .map(([k, v, bad]) => `<span class="${bad || ""}">${k} ${esc(v)}</span>`).join(" · ")}</small></figcaption></figure>`).join("")}</div>
+    <p class="credit" hidden>Tables drawn by FLUX.2 from each robot's own actions. The counts come from the run, not the picture.</p>`;
 }
 
 function setPlaying(on) {
