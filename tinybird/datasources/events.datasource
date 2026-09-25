@@ -1,0 +1,23 @@
+DESCRIPTION >
+    One row per events.jsonl line, per run. run is the run's start time, so the
+    endpoints' max(run) is the newest run; seq is the line's order within it.
+    pass is 1 or 0 on graded lines. board is the whole board as a JSON string.
+
+SCHEMA >
+    `run` String `json:$.run`,
+    `seq` UInt32 `json:$.seq`,
+    `robot` LowCardinality(String) `json:$.robot`,
+    `t` UInt16 `json:$.t`,
+    `clock` String `json:$.clock`,
+    `kind` LowCardinality(String) `json:$.kind`,
+    `text` String `json:$.text`,
+    `context_tokens` UInt32 `json:$.context_tokens`,
+    `action` Nullable(String) `json:$.action`,
+    `reason` Nullable(String) `json:$.reason`,
+    `query` Nullable(String) `json:$.query`,
+    `check` Nullable(String) `json:$.check`,
+    `pass` Nullable(UInt8) `json:$.pass`,
+    `board` Nullable(String) `json:$.board`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "run, robot, t, seq"

@@ -1,6 +1,7 @@
 # secrets
 .env
 *.key
+.tinyb
 
 # cached live sessions — regenerate with `make run`, never commit
 # (they can carry full page bodies pulled from the web)
