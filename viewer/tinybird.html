@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robot memory in Tinybird</title>
+<!--
+  The right half on stage: every panel is one Tinybird endpoint, polled once a second.
+
+  Tinybird:  /viewer/tinybird.html?host=https://api.tinybird.co&token=<read token>[&run=<run>]
+  Local:     /viewer/tinybird.html?events=../runs/<run>/events.jsonl[&at=14:00][&autoplay=1]
+             computes the same four views from the file at playback speed, labelled LOCAL.
+  Keys (local): space play/pause, left/right 10 minutes, r restart.
+-->
+<style>
+  :root {
+    --bg: #f6f4ef; --panel: #ffffff; --ink: #1c1c1e; --muted: #6d6b66; --line: #e2ded4;
+    --pass: #1d8a4c; --pass-bg: #e3f4e9; --fail: #cf3b3b; --fail-bg: #fbe6e4;
+    --accent: #2e67d6; --board: #7446c4; --system: #b86e00; --grid: #ecebe6;
+    --full_history: #e8793a; --sliding_window: #2e67d6; --task_board: #1d8a4c; --rolling_summary: #7446c4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151517; --panel: #1f1f22; --ink: #f1f0ec; --muted: #9c9a94; --line: #34332f;
+      --pass: #4cc47e; --pass-bg: #173524; --fail: #f06a62; --fail-bg: #3d1c1a;
+      --accent: #7aa2ff; --board: #b594ff; --system: #f0a53a; --grid: #2b2b2f;
+      --full_history: #ff9a57; --sliding_window: #7aa2ff; --task_board: #4cc47e; --rolling_summary: #b594ff;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151517; --panel: #1f1f22; --ink: #f1f0ec; --muted: #9c9a94; --line: #34332f;
+    --pass: #4cc47e; --pass-bg: #173524; --fail: #f06a62; --fail-bg: #3d1c1a;
+    --accent: #7aa2ff; --board: #b594ff; --system: #f0a53a; --grid: #2b2b2f;
+    --full_history: #ff9a57; --sliding_window: #7aa2ff; --task_board: #4cc47e; --rolling_summary: #b594ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .top { display: flex; align-items: center; gap: 12px; padding: 12px 16px 8px; flex-wrap: wrap; }
+  .title { font-weight: 700; font-size: 18px; }
+  .mode { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--accent); color: #fff; }
+  .mode.local { background: var(--system); }
+  .mode.mock { background: var(--fail); }
+  .status { color: var(--muted); font-size: 12px; }
+  .clock { margin-left: auto; font: 700 30px/1 ui-monospace, "SF Mono", Menlo, monospace; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 16px 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+  .panel.wide { grid-column: 1 / -1; }
+  .panel header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .panel h2 { margin: 0; font-size: 15px; }
+  .panel code { font-size: 12px; color: var(--muted); }
+  .live { width: 8px; height: 8px; border-radius: 50%; background: var(--line); margin-left: auto; align-self: center; }
+  .live.on { background: var(--pass); }
+  .live.err { background: var(--fail); }
+  .err { color: var(--fail); font-size: 12px; }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { font: 11px ui-sans-serif, system-ui, sans-serif; fill: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: center; }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-weight: 600; color: var(--muted); font-size: 11px; }
+  .ok { color: var(--pass); font-weight: 700; } .no { color: var(--fail); font-weight: 700; }
+  .total { font: 700 18px ui-monospace, Menlo, monospace; }
+  .board ul { margin: 4px 0 8px; padding-left: 18px; font-size: 13px; }
+  .key { font-family: ui-monospace, Menlo, monospace; color: var(--board); }
+  .note { color: var(--muted); font-size: 12px; }
+  .tail { list-style: none; margin: 0; padding: 0; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+  .tail li { display: flex; gap: 7px; white-space: nowrap; overflow: hidden; }
+  .tail time { font-family: ui-monospace, Menlo, monospace; color: var(--muted); font-size: 12px; }
+  .tail .who { font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 999px; color: #fff; flex: none; }
+  .tail .what { overflow: hidden; text-overflow: ellipsis; }
+  .tail .error { color: var(--fail); font-weight: 700; } .tail .system { color: var(--system); font-weight: 600; }
+  .tail .board { color: var(--board); } .tail .action { font-weight: 600; }
+  .fresh { animation: land .8s ease-out; }
+  @keyframes land { from { background: var(--pass-bg); } to { background: transparent; } }
+  @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="title">Robot memory in Tinybird</div>
+  <span class="mode" id="mode">Tinybird</span>
+  <span class="status" id="status">connecting…</span>
+  <div class="clock" id="clock">--:--</div>
+</div>
+<main>
+  <section class="panel wide"><header><h2>Context per robot</h2><code>context_by_minute</code><span class="live" data-live="context_by_minute"></span></header><div id="chart"></div></section>
+  <section class="panel"><header><h2>Scorecard</h2><code>checks_by_robot</code><span class="live" data-live="checks_by_robot"></span></header><div id="score"></div></section>
+  <section class="panel board"><header><h2>The board</h2><code>board_for_robot?robot=task_board</code><span class="live" data-live="board_for_robot"></span></header><div id="board"></div></section>
+  <section class="panel wide"><header><h2>Event tail</h2><code>latest_events</code><span class="live" data-live="latest_events"></span></header><ol class="tail" id="tail"></ol></section>
+</main>
+<script>
+const MINUTE_SECONDS = 0.3, DAY_END = 600, WALL = 32768, BUDGET = 4096, POLL_MS = 1000;
+const ORDER = ["full_history", "sliding_window", "task_board", "rolling_summary"];
+const NAMES = { full_history: "Full history", sliding_window: "Sliding window", task_board: "Task board", rolling_summary: "Rolling summary" };
+const CHECKS = [["crumble_out", "Crumble"], ["stew_vegan", "Vegan stew"], ["cloth", "Cloth"],
+                ["seven_places", "Seven"], ["roast_out", "Roast"], ["salted_once", "Salt once"]];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const hhmm = t => `${String(8 + Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t) % 60).padStart(2, "0")}`;
+const rank = r => (ORDER.indexOf(r) + 1) || 99;
+const params = new URLSearchParams(location.search);
+if (params.get("theme")) document.documentElement.dataset.theme = params.get("theme");
+
+// ---- sources: Tinybird endpoints, or the same four views from a local file -------------
+
+function tinybird(host, token, run) {
+  const base = host.replace(/\/$/, "");
+  return {
+    label: "Tinybird", cls: "",
+    async get(pipe, extra = {}) {
+      const q = new URLSearchParams({ token, ...(run ? { run } : {}), ...extra });
+      const r = await fetch(`${base}/v0/pipes/${pipe}.json?${q}`);
+      if (!r.ok) throw new Error(`${pipe}: HTTP ${r.status} ${(await r.text()).slice(0, 120)}`);
+      return (await r.json()).data;
+    },
+  };
+}
+
+function local(rows, mock) {
+  let sim = params.get("at") ? toMinute(params.get("at")) : 0, playing = !!params.get("autoplay"), last = null;
+  rows.forEach((r, i) => { r.seq = i; });
+  const landed = () => rows.filter(r => r.t <= sim);
+  const tick = now => { if (playing && last != null) sim = Math.min(DAY_END, sim + (now - last) / 1000 / MINUTE_SECONDS); last = now; requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+  addEventListener("keydown", e => {
+    if (e.key === " ") { e.preventDefault(); playing = !playing; }
+    else if (e.key === "ArrowRight") sim = Math.min(DAY_END, sim + 10);
+    else if (e.key === "ArrowLeft") sim = Math.max(0, sim - 10);
+    else if (e.key === "r") sim = 0;
+  });
+  const views = {  // mirror tinybird/pipes/*.pipe
+    context_by_minute: () => {
+      const m = new Map();
+      for (const r of landed()) m.set(`${r.robot}|${r.t}`, { robot: r.robot, t: r.t, context_tokens: r.context_tokens });
+      return [...m.values()];
+    },
+    checks_by_robot: () => landed().filter(r => r.check).map(r => ({ ...r, pass: r.pass ? 1 : 0 })),
+    board_for_robot: () => landed().filter(r => r.robot === "task_board" && r.kind === "board").slice(-1),
+    latest_events: () => landed().filter(r => r.kind !== "see").slice(-20).reverse(),
+  };
+  return { label: mock ? "LOCAL JSONL · MOCK DATA" : "LOCAL JSONL · not Tinybird", cls: mock ? "mock" : "local",
+           get: async pipe => views[pipe](), now: () => sim };
+}
+
+const toMinute = s => { const [h, m] = s.split(":").map(Number); return Math.max(0, Math.min(DAY_END, (h - 8) * 60 + m)); };
+
+// ---- panels ------------------------------------------------------------------------
+
+function chart(rows) {
+  const W = 900, H = 240, L = 46, R = 96, T = 10, B = 22;
+  const top = Math.max(40000, ...rows.map(r => r.context_tokens || 0)) * 1.05;
+  const x = t => L + t / DAY_END * (W - L - R), y = v => T + (1 - v / top) * (H - T - B);
+  const by = new Map();
+  for (const r of rows) { if (!by.has(r.robot)) by.set(r.robot, []); by.get(r.robot).push(r); }
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Prompt tokens per robot over the day">`;
+  for (let h = 0; h <= 10; h += 2) svg += `<line x1="${x(h * 60)}" x2="${x(h * 60)}" y1="${T}" y2="${H - B}" stroke="var(--grid)"/><text x="${x(h * 60)}" y="${H - 6}" text-anchor="middle">${8 + h}:00</text>`;
+  for (const v of [0, 10000, 20000, 30000, 40000]) if (v < top) svg += `<text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v / 1000}K</text>`;
+  svg += `<line x1="${L}" x2="${W - R}" y1="${y(WALL)}" y2="${y(WALL)}" stroke="var(--fail)" stroke-width="2"/><text x="${W - R + 6}" y="${y(WALL) + 4}" style="fill:var(--fail);font-weight:700">32,768 wall</text>`;
+  svg += `<line x1="${L}" x2="${W - R}" y1="${y(BUDGET)}" y2="${y(BUDGET)}" stroke="var(--muted)" stroke-dasharray="4 4"/><text x="${W - R + 6}" y="${y(BUDGET) + 4}">4,096 budget</text>`;
+  for (const robot of [...by.keys()].sort((a, b) => rank(a) - rank(b))) {
+    const pts = by.get(robot).sort((a, b) => a.t - b.t);
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(Math.min(p.context_tokens, top)).toFixed(1)}`).join("");
+    const end = pts[pts.length - 1];
+    svg += `<path d="${d}" fill="none" stroke="var(--${robot}, var(--accent))" stroke-width="2.5" stroke-linejoin="round"/>`;
+    svg += `<circle cx="${x(end.t)}" cy="${y(Math.min(end.context_tokens, top))}" r="4" fill="var(--${robot}, var(--accent))"/>`;
+  }
+  const legend = [...by.keys()].sort((a, b) => rank(a) - rank(b)).map(r => {
+    const end = by.get(r).sort((a, b) => a.t - b.t).slice(-1)[0];
+    return `<span style="color:var(--${r}, var(--accent));font-weight:700">● ${esc(NAMES[r] || r)}</span> <span class="note">${Number(end.context_tokens).toLocaleString("en-US")}</span>`;
+  }).join(" &nbsp; ");
+  return svg + `</svg><div>${legend || '<span class="note">No rows yet.</span>'}</div>`;
+}
+
+function scorecard(rows) {
+  const robots = [...new Set(rows.map(r => r.robot))].sort((a, b) => rank(a) - rank(b));
+  if (!robots.length) return '<span class="note">No graded decisions yet. The first check is at 11:00.</span>';
+  const cell = (robot, id) => {
+    const r = rows.filter(x => x.robot === robot && x.check === id).slice(-1)[0];
+    if (!r) return "<td>·</td>";
+    return `<td title="${esc(r.clock)} ${esc(r.action)}: ${esc(r.reason || "")}" class="${Number(r.pass) ? "ok" : "no"}">${Number(r.pass) ? "✓" : "✕"}</td>`;
+  };
+  return `<table><tr><th></th>${CHECKS.map(([, l]) => `<th>${l}</th>`).join("")}<th></th></tr>${robots.map(robot =>
+    `<tr><td>${esc(NAMES[robot] || robot)}</td>${CHECKS.map(([id]) => cell(robot, id)).join("")}<td class="total">${rows.filter(x => x.robot === robot && Number(x.pass)).length}/${CHECKS.length}</td></tr>`).join("")}</table>`;
+}
+
+function board(rows) {
+  const row = rows[0];
+  if (!row) return '<span class="note">No board rows yet.</span>';
+  let b = {};
+  try { b = typeof row.board === "string" ? JSON.parse(row.board) : row.board; } catch (e) { return `<span class="err">Unreadable board at ${esc(row.clock)}.</span>`; }
+  const mem = Object.entries(b.memories || {});
+  return `<div class="note">Latest row, ${esc(row.clock)}: ${esc(row.text)}. The robot reads this row when it wakes.</div>
+    ${mem.length ? `<ul>${mem.map(([k, v]) => `<li><span class="key">${esc(k)}</span> ${esc(v)}</li>`).join("")}</ul>` : '<ul><li class="note">No memories yet.</li></ul>'}
+    ${(b.doing || []).length ? `<div><b>Doing:</b> ${(b.doing).map(esc).join("; ")}</div>` : ""}
+    <div><b>Done:</b> ${(b.done || []).map(esc).join(", ") || "none"}</div>
+    <div><b>To do:</b> ${(b.todo || []).map(esc).join(", ") || "none"}</div>`;
+}
+
+let seen = new Set();
+function tail(rows) {
+  const html = rows.map(r => {
+    const key = `${r.robot}|${r.t}|${r.kind}|${r.text}`;
+    const fresh = !seen.has(key);
+    seen.add(key);
+    const what = r.kind === "action" ? `${esc(r.action || r.text)}${r.check ? (Number(r.pass) ? ' <span class="ok">✓</span>' : ' <span class="no">✕</span>') : ""}` : esc(r.text);
+    return `<li class="${fresh ? "fresh" : ""}"><time>${esc(r.clock)}</time><span class="who" style="background:var(--${esc(r.robot)}, var(--accent))">${esc(NAMES[r.robot] || r.robot)}</span><span class="what ${esc(r.kind)}">${what}</span></li>`;
+  }).join("");
+  return html || '<li class="note">No rows yet.</li>';
+}
+
+// ---- polling ---------------------------------------------------------------------
+
+const PANELS = [
+  ["context_by_minute", {}, rows => { $("#chart").innerHTML = chart(rows); return Math.max(-1, ...rows.map(r => r.t)); }],
+  ["checks_by_robot", {}, rows => { $("#score").innerHTML = scorecard(rows); }],
+  ["board_for_robot", { robot: "task_board" }, rows => { $("#board").innerHTML = board(rows); }],
+  ["latest_events", {}, rows => { $("#tail").innerHTML = tail(rows); }],
+];
+
+async function poll(source) {
+  let ok = 0;
+  await Promise.all(PANELS.map(async ([pipe, extra, render]) => {
+    const dot = document.querySelector(`[data-live="${pipe}"]`);
+    try {
+      const t = render(await source.get(pipe, extra));
+      if (typeof t === "number" && !source.now) $("#clock").textContent = t >= 0 ? hhmm(t) : "--:--";
+      dot.className = "live on"; ok++;
+    } catch (e) {
+      dot.className = "live err"; dot.title = e.message;
+      $("#status").textContent = e.message;
+    }
+  }));
+  if (source.now) $("#clock").textContent = hhmm(source.now());
+  if (ok === PANELS.length) $("#status").textContent = `${source.label === "Tinybird" ? "polled once a second" : "playing the file at 0.3 s a minute"} · ${new Date().toLocaleTimeString()}`;
+  setTimeout(() => poll(source), source.now ? 250 : POLL_MS);
+}
+
+async function main() {
+  let source;
+  if (params.get("host") && params.get("token")) {
+    source = tinybird(params.get("host"), params.get("token"), params.get("run"));
+  } else {
+    const src = params.get("events") || "../fixtures/events.sample.jsonl";
+    try {
+      const text = await (await fetch(src)).text();
+      const rows = text.split("\n").filter(l => l.trim()).map(l => JSON.parse(l));
+      source = local(rows, rows.some(r => r.mock));
+    } catch (e) {
+      $("#status").textContent = `No Tinybird host/token and couldn't read ${src}: ${e.message}`;
+      return;
+    }
+  }
+  $("#mode").textContent = source.label;
+  $("#mode").className = `mode ${source.cls}`;
+  poll(source);
+}
+main();
+</script>
+</body>
+</html>

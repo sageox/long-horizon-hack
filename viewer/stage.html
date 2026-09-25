@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dinner at six on stage</title>
+<!--
+  Both halves in one window: the kitchen on the left, Tinybird on the right.
+  Every parameter goes to both, e.g.
+    /viewer/stage.html?events=../runs/<run>/events.jsonl&autoplay=1
+    /viewer/stage.html?events=...&host=https://api.tinybird.co&token=<read token>&autoplay=1
+  With host and token the right half polls Tinybird; without, it plays the same file, labelled LOCAL.
+-->
+<style>
+  :root { --bg: #f6f4ef; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #151517; } }
+  :root[data-theme="dark"] { --bg: #151517; }
+  html, body { margin: 0; height: 100%; background: var(--bg); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; height: 100%; }
+  iframe { border: 0; width: 100%; height: 100%; }
+  @media (max-width: 720px) { .split { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="split"><iframe id="kitchen" title="Kitchen viewer"></iframe><iframe id="tinybird" title="Tinybird dashboard"></iframe></div>
+<script>
+const q = location.search;
+const theme = new URLSearchParams(q).get("theme");
+if (theme) document.documentElement.dataset.theme = theme;
+document.getElementById("kitchen").src = `index.html${q}`;
+document.getElementById("tinybird").src = `tinybird.html${q}`;
+</script>
+</body>
+</html>

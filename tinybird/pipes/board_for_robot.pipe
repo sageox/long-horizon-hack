@@ -1,0 +1,17 @@
+DESCRIPTION >
+    The latest board row for one robot: exactly what the task board reads
+    when it wakes after the 14:10 power cut, and what the board panel shows.
+    board is the whole board as a JSON string. run defaults to the newest run.
+
+NODE board_for_robot_node
+SQL >
+    %
+    SELECT robot, t, clock, text, board
+    FROM events
+    WHERE run = {% if defined(run) %}{{ String(run) }}{% else %}(SELECT max(run) FROM events){% end %}
+      AND robot = {{ String(robot, 'task_board') }}
+      AND kind = 'board'
+    ORDER BY t DESC, seq DESC
+    LIMIT 1
+
+TYPE endpoint

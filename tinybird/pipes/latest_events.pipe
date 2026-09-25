@@ -1,0 +1,17 @@
+DESCRIPTION >
+    The newest rows landing, for the event tail, optionally for one robot.
+    see lines are left out unless kinds asks for them: they are one a minute
+    and would bury everything else. run defaults to the newest run.
+
+NODE latest_events_node
+SQL >
+    %
+    SELECT robot, t, clock, kind, text, action, `check`, `pass`, context_tokens
+    FROM events
+    WHERE run = {% if defined(run) %}{{ String(run) }}{% else %}(SELECT max(run) FROM events){% end %}
+      {% if defined(robot) %} AND robot = {{ String(robot) }} {% end %}
+      AND kind IN {{ Array(kinds, 'String', default='event,web,system,action,error,board') }}
+    ORDER BY t DESC, seq DESC
+    LIMIT {{ Int32(limit, 20) }}
+
+TYPE endpoint
