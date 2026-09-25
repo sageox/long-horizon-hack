@@ -222,7 +222,9 @@ Tinybird streamer both play that one file.
 **What a memory observes:** every day line except `ask`; after each decision a
 `{"t", "clock", "did": "<action>"}` line, so the robot knows it chose to salt
 or not; and the `web` line from its own lookup. The curator labels `event` and
-`web` lines only. `see` lines go straight into the last-10 buffer.
+`web` lines only. `see` lines go straight into the last-10 buffer, each
+replacing the one before: with a see line every minute, ten slots would
+otherwise hold nothing but the last ten minutes of scenery.
 
 **The task board** (M4, 14:30). The curator lists To do from the goal line. An
 event where the robot itself acts ("Robot puts the roast chicken in the oven.

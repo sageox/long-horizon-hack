@@ -151,11 +151,12 @@ def curate(system: str, shots: list, schema: dict, text: str) -> dict:
     return json.loads(llm.chat(llm.CURATOR, messages, schema))
 
 
-# What each menu action does to the board: the thing it finishes, and the Done entry. The menu is
-# a fixed 13 actions, so this is a table, not a model call. add_salt finishes nothing.
+# What each menu action does to the board: the thing it finishes, and the Done entry, where {item}
+# is that thing's name as the board had it. The menu is a fixed 13 actions, so this is a table, not
+# a model call. add_salt finishes nothing.
 DID = {
-    "take_crumble_out": ("crumble", "crumble taken out at {clock}"),
-    "take_roast_out": ("roast", "roast taken out at {clock}"),
+    "take_crumble_out": ("crumble", "{item}, taken out at {clock}"),
+    "take_roast_out": ("roast", "{item}, taken out at {clock}"),
     "stew_with_oil": ("stew", "stew started with olive oil at {clock}"),
     "stew_with_butter": ("stew", "stew started with butter at {clock}"),
     "add_salt": ("", "stew salted at {clock}"),
@@ -196,7 +197,7 @@ def bullets(items) -> str:
 
 
 class TaskBoard:
-    """The goal, a board of jobs, memories keyed by label, and the last 10 lines.
+    """The goal, a board of jobs, memories keyed by label, and the last 10 lines, one of them a see line.
 
     Lines where the robot itself acts ("Robot puts ...") go on the board, the curator naming the
     item; its menu actions move items by DID; the curator labels other event and web lines as
@@ -224,7 +225,9 @@ class TaskBoard:
             self.todo = curate(JOBS, JOBS_SHOTS, JOBS_SCHEMA, self.goal)["jobs"]
             self.changes.append("goal and to do")
             return
-        self.recent.append(render(line))
+        if "see" in line:  # one slot for what it sees: a see line comes every minute
+            self.recent = deque((r for r in self.recent if "see" not in r), maxlen=10)
+        self.recent.append(line)
         if "did" in line:
             self._did(line)
         elif line.get("event", "").startswith("Robot "):
@@ -232,18 +235,20 @@ class TaskBoard:
         elif "event" in line or "web" in line:
             self._remember(line)
 
-    def _finish(self, item: str) -> None:
-        """Take the item off To do and Doing."""
+    def _finish(self, item: str) -> str:
+        """Take the item off To do and Doing, and return its name as Doing had it."""
+        names = [d.split(" since ")[0] for d in self.doing if words(d.split(" since ")[0]) & words(item)]
         self.todo = [t for t in self.todo if not words(t) & words(item)]
         self.doing = [d for d in self.doing if not words(d.split(" since ")[0]) & words(item)]
+        return names[0] if names else item
 
     def _did(self, line: dict) -> None:
         if line["did"] not in DID:
             return
         item, entry = DID[line["did"]]
         if item:
-            self._finish(item)
-        self.done.append(entry.format(clock=line["clock"]))
+            item = self._finish(item)
+        self.done.append(entry.format(item=item, clock=line["clock"]))
         self.changes.append(f"did {line['did']}")
 
     def _step(self, line: dict) -> None:
@@ -275,7 +280,7 @@ class TaskBoard:
         memories = [f"{k}: {v}" for k, v in self.memories.items()]
         head = (f"Goal: {self.goal}\n\nBoard\nTo do:\n{bullets(self.todo)}\nDoing:\n{bullets(self.doing)}\n"
                 f"Done:\n{bullets(self.done)}\n\nMemories:\n{bullets(memories)}\n\nRecent:\n")
-        recent = list(self.recent)
+        recent = [render(r) for r in self.recent]
         while True:  # the budget holds: the oldest recent lines go first
             context = [{"role": "user", "content": head + "\n".join(recent)}]
             if not recent or tokens(context) <= self.budget:
