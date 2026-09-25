@@ -309,6 +309,10 @@ function buildMilestones() {
       (row.system === "power_cut" || /power[\s_-]*cut/i.test(row.text || "")),
   );
   if (cut) markers.push([cut.t, "Power cut", "power"]);
+  const wall = data.rows.find(
+    (row) => row.robot === "full_history" && row.context_tokens > 32768,
+  );
+  if (wall) markers.push([wall.t, "32K wall", "wall"]);
   markers.push([570, "Roast check"], [DAY_END, "Dinner", "end"]);
   $("#milestones").innerHTML = markers
     .map(
@@ -549,6 +553,18 @@ function renderScorecard() {
           ).join("")}<td>${states[id].score} / 6</td></tr>`,
       )
       .join("")}</tbody>`;
+  // tables.py draws each robot's 18:00 table into runs/<run>/tables/; the stage server serves /runs/.
+  const run = activeSource?.match(/(?:backend-runs|runs)\/([^/]+)\/events\.jsonl$/)?.[1];
+  const best = Math.max(...data.robots.map((id) => states[id].score));
+  $("#score-tables").innerHTML =
+    run && minute >= DAY_END
+      ? data.robots
+          .map(
+            (id) =>
+              `<figure class="${states[id].score === best ? "best" : ""}"><img src="/runs/${encodeURIComponent(run)}/tables/${encodeURIComponent(id)}.jpg" alt="${escape(strategy(id).name)}: the table at 18:00, drawn by FLUX.2" onerror="this.parentElement.remove()"><figcaption>${escape(strategy(id).name)} · ${states[id].score} / 6</figcaption></figure>`,
+          )
+          .join("")
+      : "";
   $("#jump-end").hidden = minute >= DAY_END;
 }
 
