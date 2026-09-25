@@ -8,8 +8,8 @@ Full plan with the interactive day: `ox plan view robot-dinner-at-six`.
 ## The demo
 
 A home robot gets one goal at 08:00: **dinner for the family on the table at
-18:00.** About 40 dependent steps over ten hours, on LFM2.5-1.2B with a 32,768
-token window. The same day runs three times, one per memory strategy. At 18:00
+18:00.** About 40 dependent steps over ten hours, on LFM2.5-8B-A1B held to a
+32,768-token window. The same day runs three times, one per memory strategy. At 18:00
 we grade the table.
 
 | Time | Event | Tests |
@@ -29,9 +29,9 @@ tablecloth on the table, seven places, roast out on time, stew salted once.
 
 | Sponsor | What it does in the demo | Status |
 |---|---|---|
-| **Liquid AI** | The robot's brain. LFM2.5-1.2B picks every action; LFM2.5-350M decides which events become memories. Both local. The 1.2B model's 32,768-token window is the wall full history hits at 14:51. | agreed |
+| **Liquid AI** | The robot's brain. LFM2.5-8B-A1B (8B parameters, about 1B active per token) picks every action; LFM2.5-350M decides which events become memories. Both local. The robot's 32,768-token budget is the wall full history hits at 14:51. | agreed |
 | **Tinybird** | The robot's memory outside the model: task board, memories, event log. The 14:10 reboot reads it; the live dashboard polls it. | agreed |
-| **AWS** | Bedrock plans instead if LFM2.5-1.2B fails the 14:00 go/no-go. | agreed, fallback |
+| **AWS** | Was the planner fallback (Bedrock). Dropped at the go/no-go: the planner stays on Liquid. | dropped |
 | **Black Forest Labs** | **FLUX 3 Action** as the robot's hands: executes the planner's instruction for one step, the 17:30 roast. Run once on a GPU, recorded, played on stage. | Faridun's pick, needs a GPU |
 | **Nimble** | Recipe lookup when the stew starts at 13:00. The query depends on memory: the window robot forgot Leo is vegan and searches for the wrong stew. | in |
 
@@ -184,11 +184,10 @@ Three implementations, each given the same planner (a fourth if there's time):
   "why not just summarize?" Whatever it scores, it's the honest comparison.
 
 Curator: LFM2.5-350M labels each event constraint / lesson / update / noise.
-Planner: LFM2.5-1.2B picks one action from the menu. Both run locally through
-Ollama (0.34.4, installed, both models pulled). Weights:
-`LiquidAI/LFM2.5-1.2B-Instruct-GGUF` and `LiquidAI/LFM2.5-350M-GGUF`;
-`LiquidAI/LFM2-1.2B-Tool-GGUF` is a tool-calling variant to try if the planner
-struggles to pick from the menu.
+Planner: LFM2.5-8B-A1B picks one action from the menu. Both run locally through
+Ollama 0.34.4. Weights: `LiquidAI/LFM2.5-8B-A1B-GGUF` (Q4_K_M, 5.2 GB) and
+`LiquidAI/LFM2.5-350M-GGUF`. The 8B writes hidden reasoning before it answers,
+so a decision takes about 10 seconds; the day has six asks per robot.
 
 Ollama truncates an overlong prompt without an error. Measured at 12:50: with
 `num_ctx` 32768, a ~50K-token prompt came back with `prompt_eval_count` 16,387
@@ -238,12 +237,12 @@ noise is dropped. The `board` JSON has `goal`, `todo`, `doing`, `done` and
 `memories`. Recent is not in it, so after the power cut it starts empty.
 
 **Planner output** is Ollama structured output with a JSON schema, `anyOf`
-`{"reason": str, "step": <enum of menu.actions>}` or
-`{"reason": str, "search_recipe": str}`. Ollama writes keys in alphabetical
-order whatever order the schema gives, so the action is asked for as `step`,
-which sorts after `reason`: the model reasons before it chooses.
-`planner.decide` returns it as `action`. The enum makes an off-menu action
-impossible. After one lookup the second call's schema drops the lookup, so the
+`{"asked", "due", "facts", "reason": str, "step": <enum of menu.actions>}` or
+the same notes with `"search_recipe": str`. Ollama writes keys in alphabetical
+order whatever order the schema gives, so the model fills in what was asked,
+what is due, the facts that matter and its reason before it writes the choice.
+`planner.decide` returns the step as `action`. The enum makes an off-menu
+action impossible. After one lookup the second call's schema drops the lookup, so the
 second answer has to be an action.
 
 **Over 32K** no call is made. The harness logs `kind: "error"`,
@@ -317,8 +316,12 @@ to run a subset.
 1. 12:45: fixture `day.jsonl` by hand, both LFM models answering locally.
 2. Both halves in parallel against the fixture.
 3. 14:00 (was 13:30): planner go/no-go. Given a hand-written perfect board,
-   does 1.2B pick the right action at all six checks? If not, Bedrock plans
-   under an enforced 32K cap and LFM stays the curator.
+   does 1.2B pick the right action at all six checks? Done 14:35: no. The
+   1.2B scored at most 3/6 across seven prompt and board variants; the 2.6B,
+   the 1.2B Thinking model and LFM2-24B-A2B at most 4/6. Bedrock was ruled out
+   to keep the planner on Liquid. The planner is LFM2.5-8B-A1B, 5/6 on a
+   clearly worded board. Wording decides a lot: it read "roast... out at
+   17:30" as already out, so boards say "take it out at 17:30".
 4. 14:15: integrate. Full day, three scorecards, one command.
 5. 14:45: viewer plays the day. **Submittable here.** Record a backup video.
 6. Tinybird behind the board and the chart; the 14:10 reboot reads from it.
