@@ -1,0 +1,26 @@
+# secrets
+.env
+*.key
+
+# cached live sessions — regenerate with `make run`, never commit
+# (they can carry full page bodies pulled from the web)
+session*.jsonl
+runs/
+.cache/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# node
+node_modules/
+dist/
+.next/
+
+# os / editor
+.DS_Store
+.idea/
+*.swp

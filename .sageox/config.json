@@ -1,0 +1,8 @@
+{
+  "config_version": "2",
+  "repo_id": "repo_01a0d9c5-5f69-7de6-aa8f-6144667f1e66",
+  "team_id": "team_n8afnhl6xd",
+  "team_name": "Long Horizon Hack",
+  "endpoint": "https://sageox.ai",
+  "update_frequency_hours": 24
+}

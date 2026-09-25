@@ -1,0 +1,27 @@
+{
+  "repo_id": "repo_01a0d9c5-5f69-7de6-aa8f-6144667f1e66",
+  "type": "git",
+  "init_at": "2026-09-25T18:13:06Z",
+  "init_by_email": "faridun@sageox.ai",
+  "init_by_name": "Faridun",
+  "repo_salt": "c78b3d62ca1f006e0cd6eae09a9e05a27d274637",
+  "endpoint": "https://sageox.ai",
+  "fingerprint": {
+    "first_commit": "c78b3d62ca1f006e0cd6eae09a9e05a27d274637",
+    "monthly_checkpoints": {
+      "2026-09": "c78b3d62ca1f006e0cd6eae09a9e05a27d274637"
+    },
+    "ancestry_samples": [
+      "c78b3d62ca1f006e0cd6eae09a9e05a27d274637"
+    ]
+  },
+  "team_urls": {
+    "Faridun's Private Team": "https://git.sageox.ai/sageox-team_vqkw8p31zb/team-context.git",
+    "Long Horizon Hack": "https://git.sageox.ai/sageox-team_n8afnhl6xd/team-context.git",
+    "SageOx Internal": "https://git.sageox.ai/sageox-team_xlcr6yzpec/team-context.git",
+    "test": "https://git.sageox.ai/sageox-team_cz2dluy4gl/team-context.git"
+  },
+  "urls_cached_at": "2026-09-25T18:13:08Z",
+  "version": "0.18.0",
+  "updated_at": "2026-09-25T18:13:08Z"
+}
